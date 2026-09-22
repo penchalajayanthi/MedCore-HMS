@@ -56,6 +56,7 @@ const navigation = [
       },
     ],
   },
+
   {
     title: "Clinical",
     items: [
@@ -91,6 +92,7 @@ const navigation = [
       },
     ],
   },
+
   {
     title: "Operations",
     items: [
@@ -124,87 +126,109 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
 
-  const [userName, setUserName] = useState("Hospital Admin");
-  const [userRole, setUserRole] = useState("Administrator");
-  const [hospitalName, setHospitalName] =
-    useState("MedCore Hospital");
+  const [user, setUser] = useState<SessionUser>({});
 
   useEffect(() => {
-    try {
-      /* ========================================================
-         PRIMARY SOURCE: medcore_session
-      ======================================================== */
+    const loadUser = () => {
+      try {
+        /* ============================================
+           PRIMARY SOURCE
+        ============================================ */
 
-      const session = localStorage.getItem("medcore_session");
+        const session = localStorage.getItem(
+          "medcore_session"
+        );
 
-      if (session) {
-        const parsedSession: SessionData =
-          JSON.parse(session);
+        if (session) {
+          const parsedSession: SessionData =
+            JSON.parse(session);
 
-        const user = parsedSession?.user;
+          if (parsedSession?.user) {
+            setUser({
+              ...parsedSession.user,
+            });
 
-        if (user?.fullName) {
-          setUserName(user.fullName);
+            return;
+          }
         }
 
-        if (user?.role) {
-          setUserRole(user.role);
-        }
+        /* ============================================
+           FALLBACK
+        ============================================ */
 
-        if (user?.hospitalName) {
-          setHospitalName(user.hospitalName);
-        }
+        const account =
+          localStorage.getItem("medcore_account");
 
-        return;
+        if (account) {
+          const parsedAccount: SessionUser =
+            JSON.parse(account);
+
+          setUser({
+            ...parsedAccount,
+          });
+        }
+      } catch (error) {
+        console.error(
+          "Unable to load sidebar user:",
+          error
+        );
       }
+    };
 
-      /* ========================================================
-         FALLBACK: medcore_account
-      ======================================================== */
+    loadUser();
 
-      const account = localStorage.getItem("medcore_account");
+    window.addEventListener("storage", loadUser);
 
-      if (account) {
-        const parsedAccount: SessionUser =
-          JSON.parse(account);
-
-        if (parsedAccount?.fullName) {
-          setUserName(parsedAccount.fullName);
-        }
-
-        if (parsedAccount?.role) {
-          setUserRole(parsedAccount.role);
-        }
-
-        if (parsedAccount?.hospitalName) {
-          setHospitalName(parsedAccount.hospitalName);
-        }
-      }
-    } catch (error) {
-      console.error(
-        "Unable to load sidebar user information:",
-        error
-      );
-    }
+    return () => {
+      window.removeEventListener("storage", loadUser);
+    };
   }, []);
+
+  const displayName =
+    user.fullName?.trim() || "User";
+
+  const displayRole =
+    user.role?.trim()
+      ? user.role.charAt(0).toUpperCase() +
+        user.role.slice(1)
+      : "Administrator";
+
+  const displayHospital =
+    user.hospitalName?.trim() ||
+    "MedCore Hospital";
+
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((name) => name.charAt(0))
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* ==================================================
+          MOBILE OVERLAY
+      ================================================== */}
+
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm lg:hidden"
           onClick={onClose}
         />
       )}
+
+      {/* ==================================================
+          SIDEBAR
+      ================================================== */}
 
       <aside
         className={`
           fixed left-0 top-0 z-50 flex h-screen w-72
           flex-col border-r border-slate-200 bg-white
-          transition-transform duration-300
+          shadow-xl transition-transform duration-300
           dark:border-slate-800 dark:bg-slate-950
-          lg:translate-x-0
+          lg:translate-x-0 lg:shadow-none
           ${
             mobileOpen
               ? "translate-x-0"
@@ -212,14 +236,19 @@ export function AppSidebar({
           }
         `}
       >
-        {/* Logo */}
-        <div className="flex h-20 items-center justify-between border-b border-slate-200 px-6 dark:border-slate-800">
+
+        {/* ==================================================
+            LOGO
+        ================================================== */}
+
+        <div className="flex h-20 shrink-0 items-center justify-between border-b border-slate-200 px-5 dark:border-slate-800">
+
           <Link
             href="/dashboard"
-            className="flex items-center gap-3"
             onClick={onClose}
+            className="flex items-center gap-3"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-600 text-white shadow-lg shadow-cyan-600/20">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20">
               <HeartPulse className="h-6 w-6" />
             </div>
 
@@ -228,8 +257,8 @@ export function AppSidebar({
                 MedCore
               </p>
 
-              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
-                HMS
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
+                Hospital Management
               </p>
             </div>
           </Link>
@@ -243,34 +272,50 @@ export function AppSidebar({
           </button>
         </div>
 
-        {/* Hospital */}
-        <div className="mx-4 mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+        {/* ==================================================
+            HOSPITAL
+        ================================================== */}
+
+        <div className="mx-4 mt-5 shrink-0 rounded-2xl border border-cyan-100 bg-gradient-to-br from-cyan-50 to-blue-50 p-3 dark:border-cyan-950 dark:from-cyan-950/40 dark:to-blue-950/30">
+
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-100 dark:bg-cyan-950">
+
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-100 dark:bg-cyan-950">
               <Building2 className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
             </div>
 
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-200">
-                {hospitalName}
+
+              <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-200">
+                {displayHospital}
               </p>
 
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Main Branch
               </p>
+
             </div>
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* ==================================================
+            NAVIGATION
+        ================================================== */}
+
         <nav className="flex-1 overflow-y-auto px-4 py-5">
+
           {navigation.map((section) => (
-            <div key={section.title} className="mb-6">
-              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <div
+              key={section.title}
+              className="mb-6"
+            >
+
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
                 {section.title}
               </p>
 
               <div className="space-y-1">
+
                 {section.items.map((item) => {
                   const Icon = item.icon;
 
@@ -286,56 +331,77 @@ export function AppSidebar({
                       href={item.href}
                       onClick={onClose}
                       className={`
-                        flex items-center gap-3 rounded-xl px-3 py-2.5
-                        text-sm font-medium transition-all
+                        group flex items-center gap-3
+                        rounded-xl px-3 py-2.5
+                        text-sm font-medium
+                        transition-all
                         ${
                           active
-                            ? "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-400"
+                            ? "bg-gradient-to-r from-cyan-50 to-blue-50 text-cyan-700 shadow-sm dark:from-cyan-950/60 dark:to-blue-950/40 dark:text-cyan-400"
                             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"
                         }
                       `}
                     >
+
                       <Icon
-                        className={`h-4.5 w-4.5 ${
-                          active
-                            ? "text-cyan-600 dark:text-cyan-400"
-                            : ""
-                        }`}
+                        className={`
+                          h-4.5 w-4.5 shrink-0
+                          ${
+                            active
+                              ? "text-cyan-600 dark:text-cyan-400"
+                              : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
+                          }
+                        `}
                       />
 
-                      <span>{item.label}</span>
+                      <span className="truncate">
+                        {item.label}
+                      </span>
 
                       {active && (
-                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-cyan-600 dark:bg-cyan-400" />
+                        <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-600 dark:bg-cyan-400" />
                       )}
                     </Link>
                   );
                 })}
+
               </div>
             </div>
           ))}
         </nav>
 
-        {/* User */}
-        <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-          <div className="flex items-center gap-3 rounded-xl p-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-950">
-              <UserRound className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+        {/* ==================================================
+            USER
+        ================================================== */}
+
+        <div className="shrink-0 border-t border-slate-200 p-4 dark:border-slate-800">
+
+          <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-50 to-blue-50 p-2.5 dark:from-cyan-950/40 dark:to-blue-950/30">
+
+            {/* Avatar */}
+
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs font-bold text-white shadow-md">
+              {initials}
             </div>
 
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-200">
-                {userName}
+            {/* User */}
+
+            <div className="min-w-0 flex-1">
+
+              <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-200">
+                {displayName}
               </p>
 
-              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                {userRole}
+              <p className="truncate text-xs capitalize text-slate-500 dark:text-slate-400">
+                {displayRole}
               </p>
+
             </div>
 
-            <Activity className="ml-auto h-4 w-4 shrink-0 text-emerald-500" />
+            <Activity className="h-4 w-4 shrink-0 text-emerald-500" />
           </div>
         </div>
+
       </aside>
     </>
   );
