@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
@@ -40,30 +40,32 @@ type Appointment = {
   status: AppointmentStatus;
 };
 
-/* -------------------------------------------------------
+/* =======================================================
    GET TODAY'S DATE
    Format: YYYY-MM-DD
-------------------------------------------------------- */
+======================================================= */
 
 function getTodayDate() {
   const today = new Date();
 
   const year = today.getFullYear();
 
-  const month = String(
-    today.getMonth() + 1
-  ).padStart(2, "0");
+  const month = String(today.getMonth() + 1).padStart(
+    2,
+    "0"
+  );
 
-  const day = String(
-    today.getDate()
-  ).padStart(2, "0");
+  const day = String(today.getDate()).padStart(
+    2,
+    "0"
+  );
 
   return `${year}-${month}-${day}`;
 }
 
-/* -------------------------------------------------------
+/* =======================================================
    DEMO APPOINTMENTS
-------------------------------------------------------- */
+======================================================= */
 
 const demoAppointments: Appointment[] = [
   {
@@ -127,9 +129,9 @@ const demoAppointments: Appointment[] = [
   },
 ];
 
-/* -------------------------------------------------------
+/* =======================================================
    STATUS OPTIONS
-------------------------------------------------------- */
+======================================================= */
 
 const statusOptions: AppointmentStatus[] = [
   "PENDING",
@@ -140,87 +142,69 @@ const statusOptions: AppointmentStatus[] = [
   "NO_SHOW",
 ];
 
-/* -------------------------------------------------------
+/* =======================================================
    STATUS COLORS
-------------------------------------------------------- */
+======================================================= */
 
-function getStatusClasses(
-  status: AppointmentStatus
-) {
+function getStatusClasses(status: AppointmentStatus) {
   switch (status) {
     case "PENDING":
-      return "bg-amber-50 text-amber-700 border-amber-200";
+      return "border-amber-200 bg-amber-50 text-amber-700";
 
     case "CONFIRMED":
-      return "bg-blue-50 text-blue-700 border-blue-200";
+      return "border-blue-200 bg-blue-50 text-blue-700";
 
     case "IN_PROGRESS":
-      return "bg-cyan-50 text-cyan-700 border-cyan-200";
+      return "border-cyan-200 bg-cyan-50 text-cyan-700";
 
     case "COMPLETED":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
 
     case "CANCELLED":
-      return "bg-red-50 text-red-700 border-red-200";
+      return "border-red-200 bg-red-50 text-red-700";
 
     case "NO_SHOW":
-      return "bg-slate-100 text-slate-600 border-slate-200";
+      return "border-slate-200 bg-slate-100 text-slate-600";
 
     default:
-      return "bg-slate-50 text-slate-600 border-slate-200";
+      return "border-slate-200 bg-slate-50 text-slate-600";
   }
 }
 
-/* -------------------------------------------------------
+/* =======================================================
    STATUS ICON
-------------------------------------------------------- */
+======================================================= */
 
-function getStatusIcon(
-  status: AppointmentStatus
-) {
+function getStatusIcon(status: AppointmentStatus) {
   switch (status) {
     case "PENDING":
-      return (
-        <Clock3 className="h-3.5 w-3.5" />
-      );
+      return <Clock3 className="h-3.5 w-3.5" />;
 
     case "CONFIRMED":
-      return (
-        <CheckCircle2 className="h-3.5 w-3.5" />
-      );
+      return <CheckCircle2 className="h-3.5 w-3.5" />;
 
     case "IN_PROGRESS":
-      return (
-        <HeartPulse className="h-3.5 w-3.5" />
-      );
+      return <HeartPulse className="h-3.5 w-3.5" />;
 
     case "COMPLETED":
-      return (
-        <CheckCircle2 className="h-3.5 w-3.5" />
-      );
+      return <CheckCircle2 className="h-3.5 w-3.5" />;
 
     case "CANCELLED":
-      return (
-        <XCircle className="h-3.5 w-3.5" />
-      );
+      return <XCircle className="h-3.5 w-3.5" />;
 
     case "NO_SHOW":
-      return (
-        <AlertCircle className="h-3.5 w-3.5" />
-      );
+      return <AlertCircle className="h-3.5 w-3.5" />;
 
     default:
       return null;
   }
 }
 
-/* -------------------------------------------------------
+/* =======================================================
    FORMAT STATUS
-------------------------------------------------------- */
+======================================================= */
 
-function formatStatus(
-  status: AppointmentStatus
-) {
+function formatStatus(status: AppointmentStatus) {
   return status.replace("_", " ");
 }
 
@@ -231,56 +215,52 @@ function formatStatus(
 export default function AppointmentsPage() {
   const router = useRouter();
 
-  /* -----------------------------------------------------
+  /* -------------------------------------------------------
      APPOINTMENTS
-  ----------------------------------------------------- */
+  ------------------------------------------------------- */
 
-  const [appointments, setAppointments] =
-    useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<
+    Appointment[]
+  >([]);
 
-  /* -----------------------------------------------------
+  /* -------------------------------------------------------
      SEARCH
-  ----------------------------------------------------- */
+  ------------------------------------------------------- */
 
-  const [searchQuery, setSearchQuery] =
-    useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  /* -----------------------------------------------------
+  /* -------------------------------------------------------
      STATUS FILTER
-  ----------------------------------------------------- */
+  ------------------------------------------------------- */
 
-  const [statusFilter, setStatusFilter] =
-    useState<
-      "ALL" | AppointmentStatus
-    >("ALL");
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | AppointmentStatus
+  >("ALL");
 
-  /* -----------------------------------------------------
+  /* -------------------------------------------------------
      DATE FILTER
-
-     IMPORTANT:
      Default = TODAY
-  ----------------------------------------------------- */
+  ------------------------------------------------------- */
 
-  const [dateFilter, setDateFilter] =
-    useState(getTodayDate());
+  const [dateFilter, setDateFilter] = useState(
+    getTodayDate()
+  );
 
-  /* -----------------------------------------------------
+  /* -------------------------------------------------------
      LOADING
-  ----------------------------------------------------- */
+  ------------------------------------------------------- */
 
-  const [isLoading, setIsLoading] =
-    useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  /* -----------------------------------------------------
+  /* =======================================================
      LOAD APPOINTMENTS
-  ----------------------------------------------------- */
+  ======================================================= */
 
   useEffect(() => {
     try {
-      const stored =
-        localStorage.getItem(
-          "medcore_appointments"
-        );
+      const stored = localStorage.getItem(
+        "medcore_appointments"
+      );
 
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -288,144 +268,109 @@ export default function AppointmentsPage() {
         if (Array.isArray(parsed)) {
           setAppointments(parsed);
         } else {
-          setAppointments(
-            demoAppointments
-          );
+          setAppointments(demoAppointments);
         }
       } else {
-        setAppointments(
-          demoAppointments
-        );
+        setAppointments(demoAppointments);
       }
     } catch {
-      setAppointments(
-        demoAppointments
-      );
+      setAppointments(demoAppointments);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  /* -----------------------------------------------------
+  /* =======================================================
      FILTER APPOINTMENTS
-  ----------------------------------------------------- */
+  ======================================================= */
 
-  const filteredAppointments =
-    useMemo(() => {
-      return appointments.filter(
-        (appointment) => {
-          const search =
-            searchQuery
-              .toLowerCase()
-              .trim();
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((appointment) => {
+      const search = searchQuery
+        .toLowerCase()
+        .trim();
 
-          const matchesSearch =
-            !search ||
-            appointment.patientName
-              .toLowerCase()
-              .includes(search) ||
-            appointment.doctorName
-              .toLowerCase()
-              .includes(search) ||
-            appointment.id
-              .toLowerCase()
-              .includes(search);
+      const matchesSearch =
+        !search ||
+        appointment.patientName
+          .toLowerCase()
+          .includes(search) ||
+        appointment.doctorName
+          .toLowerCase()
+          .includes(search) ||
+        appointment.id
+          .toLowerCase()
+          .includes(search);
 
-          const matchesStatus =
-            statusFilter === "ALL" ||
-            appointment.status ===
-              statusFilter;
+      const matchesStatus =
+        statusFilter === "ALL" ||
+        appointment.status === statusFilter;
 
-          const matchesDate =
-            !dateFilter ||
-            appointment.date ===
-              dateFilter;
+      const matchesDate =
+        !dateFilter ||
+        appointment.date === dateFilter;
 
-          return (
-            matchesSearch &&
-            matchesStatus &&
-            matchesDate
-          );
-        }
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesDate
       );
-    }, [
-      appointments,
-      searchQuery,
-      statusFilter,
-      dateFilter,
-    ]);
-
-  /* -----------------------------------------------------
-     STATISTICS
-
-     Statistics are based on the selected date.
-  ----------------------------------------------------- */
-
-  const counts = useMemo(() => {
-    const dateAppointments =
-      appointments.filter(
-        (appointment) =>
-          appointment.date ===
-          dateFilter
-      );
-
-    return {
-      total:
-        dateAppointments.length,
-
-      pending:
-        dateAppointments.filter(
-          (item) =>
-            item.status ===
-            "PENDING"
-        ).length,
-
-      confirmed:
-        dateAppointments.filter(
-          (item) =>
-            item.status ===
-            "CONFIRMED"
-        ).length,
-
-      inProgress:
-        dateAppointments.filter(
-          (item) =>
-            item.status ===
-            "IN_PROGRESS"
-        ).length,
-
-      completed:
-        dateAppointments.filter(
-          (item) =>
-            item.status ===
-            "COMPLETED"
-        ).length,
-    };
+    });
   }, [
     appointments,
+    searchQuery,
+    statusFilter,
     dateFilter,
   ]);
 
-  /* -----------------------------------------------------
+  /* =======================================================
+     STATISTICS
+  ======================================================= */
+
+  const counts = useMemo(() => {
+    const dateAppointments = appointments.filter(
+      (appointment) =>
+        appointment.date === dateFilter
+    );
+
+    return {
+      total: dateAppointments.length,
+
+      pending: dateAppointments.filter(
+        (item) => item.status === "PENDING"
+      ).length,
+
+      confirmed: dateAppointments.filter(
+        (item) => item.status === "CONFIRMED"
+      ).length,
+
+      inProgress: dateAppointments.filter(
+        (item) => item.status === "IN_PROGRESS"
+      ).length,
+
+      completed: dateAppointments.filter(
+        (item) => item.status === "COMPLETED"
+      ).length,
+    };
+  }, [appointments, dateFilter]);
+
+  /* =======================================================
      UPDATE STATUS
-  ----------------------------------------------------- */
+  ======================================================= */
 
   const updateStatus = (
     appointmentId: string,
     newStatus: AppointmentStatus
   ) => {
-    const updated =
-      appointments.map(
-        (appointment) =>
-          appointment.id ===
-          appointmentId
-            ? {
-                ...appointment,
-                status:
-                  newStatus,
-              }
-            : appointment
-      );
+    const updated = appointments.map(
+      (appointment) =>
+        appointment.id === appointmentId
+          ? {
+              ...appointment,
+              status: newStatus,
+            }
+          : appointment
+    );
 
     setAppointments(updated);
 
@@ -435,21 +380,9 @@ export default function AppointmentsPage() {
     );
   };
 
-  /* -----------------------------------------------------
+  /* =======================================================
      STATUS LIFECYCLE
-
-     PRD:
-     PENDING
-        ↓
-     CONFIRMED
-        ↓
-     IN_PROGRESS
-        ↓
-     COMPLETED
-
-     Alternative:
-     CANCELLED / NO_SHOW
-  ----------------------------------------------------- */
+  ======================================================= */
 
   const canMoveToStatus = (
     current: AppointmentStatus,
@@ -471,112 +404,171 @@ export default function AppointmentsPage() {
       ].includes(next);
     }
 
-    if (
-      current === "IN_PROGRESS"
-    ) {
-      return [
-        "COMPLETED",
-      ].includes(next);
+    if (current === "IN_PROGRESS") {
+      return ["COMPLETED"].includes(next);
     }
 
     return false;
   };
 
-  /* -----------------------------------------------------
+  /* =======================================================
      TODAY BUTTON
-  ----------------------------------------------------- */
+  ======================================================= */
 
   const handleToday = () => {
-    setDateFilter(
-      getTodayDate()
-    );
+    setDateFilter(getTodayDate());
   };
 
-  /* =====================================================
+  /* =======================================================
+     OPEN NEW APPOINTMENT
+  ======================================================= */
+
+  const openNewAppointment = () => {
+    router.push("/appointments/new");
+  };
+
+  /* =======================================================
      UI
-  ===================================================== */
+  ======================================================= */
 
   return (
-    <div className="min-h-screen bg-slate-50/70 p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="min-h-screen bg-slate-50/70 p-3 sm:p-5 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-5 sm:space-y-6">
 
         {/* =================================================
-            HEADER
+            HIGHLIGHTED PAGE HEADER
         ================================================= */}
 
-        <motion.div
+        <motion.section
           initial={{
             opacity: 0,
-            y: -15,
+            y: -18,
           }}
           animate={{
             opacity: 1,
             y: 0,
           }}
-          className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+          className="relative overflow-hidden rounded-3xl border border-cyan-200 bg-gradient-to-br from-cyan-700 via-cyan-600 to-blue-700 p-5 shadow-xl shadow-cyan-900/10 sm:p-7 lg:p-8"
         >
-          <div>
-            <div className="mb-1 flex items-center gap-2 text-xs text-slate-500">
-              <CalendarDays className="h-4 w-4 text-cyan-600" />
+          {/* Decorative background */}
 
-              Hospital Management
+          <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
 
-              <span>/</span>
+          <div className="pointer-events-none absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-blue-300/10 blur-3xl" />
 
-              Appointments
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+
+            {/* LEFT */}
+
+            <div className="max-w-2xl text-white">
+
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
+                <CalendarDays className="h-3.5 w-3.5" />
+
+                Hospital Management
+
+                <span className="text-white/50">
+                  /
+                </span>
+
+                Appointment Management
+              </div>
+
+              <div className="flex items-start gap-4">
+
+                <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 shadow-lg backdrop-blur-sm sm:flex">
+                  <CalendarDays className="h-7 w-7 text-white" />
+                </div>
+
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+                    Appointments
+                  </h1>
+
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-cyan-50 sm:text-base">
+                    Schedule, monitor and manage
+                    patient appointments with a
+                    clear clinical status lifecycle.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+                  {counts.total} appointments
+                </span>
+
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+                  {counts.confirmed} confirmed
+                </span>
+
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+                  {counts.inProgress} in progress
+                </span>
+              </div>
             </div>
 
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              Appointments
-            </h1>
+            {/* BOOK APPOINTMENT */}
 
-            <p className="mt-1 text-sm text-slate-500">
-              Manage appointment scheduling
-              and status lifecycle.
-            </p>
+            <div className="shrink-0">
+              <button
+                type="button"
+                onClick={openNewAppointment}
+                className="group inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/30 bg-white px-5 text-sm font-bold text-cyan-700 shadow-xl shadow-cyan-950/20 transition duration-200 hover:-translate-y-0.5 hover:bg-cyan-50 active:translate-y-0 sm:w-auto sm:px-6"
+              >
+                <Plus className="h-5 w-5 transition-transform group-hover:rotate-90" />
+
+                Book Appointment
+              </button>
+
+              <p className="mt-2 text-center text-[11px] text-cyan-100">
+                Create a new patient appointment
+              </p>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              router.push(
-                "/appointments/new"
-              )
-            }
-            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:scale-[1.01]"
-          >
-            <Plus className="h-4 w-4" />
-
-            New Appointment
-          </button>
-        </motion.div>
+        </motion.section>
 
         {/* =================================================
-            SELECTED DATE INDICATOR
+            SELECTED DATE
         ================================================= */}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700">
-            Showing appointments for:
-          </span>
+        <motion.div
+          initial={{
+            opacity: 0,
+            y: 10,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+          }}
+          className="rounded-2xl border border-blue-200 bg-blue-50/60 p-3 shadow-sm sm:p-4"
+        >
+          <div className="flex flex-wrap items-center gap-2">
 
-          <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
-            {dateFilter}
-          </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-cyan-700 shadow-sm">
+              <CalendarDays className="h-3.5 w-3.5" />
 
-          {dateFilter ===
-            getTodayDate() && (
-            <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-              Today
+              Showing appointments for
             </span>
-          )}
-        </div>
+
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm">
+              {dateFilter}
+            </span>
+
+            {dateFilter === getTodayDate() && (
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                Today
+              </span>
+            )}
+          </div>
+        </motion.div>
 
         {/* =================================================
             STATS
         ================================================= */}
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
 
           <StatCard
             label="Total"
@@ -584,6 +576,8 @@ export default function AppointmentsPage() {
             icon={
               <CalendarDays className="h-5 w-5" />
             }
+            borderClass="border-cyan-200"
+            iconClass="bg-cyan-50 text-cyan-600"
           />
 
           <StatCard
@@ -592,6 +586,8 @@ export default function AppointmentsPage() {
             icon={
               <Clock3 className="h-5 w-5" />
             }
+            borderClass="border-amber-200"
+            iconClass="bg-amber-50 text-amber-600"
           />
 
           <StatCard
@@ -600,6 +596,8 @@ export default function AppointmentsPage() {
             icon={
               <CheckCircle2 className="h-5 w-5" />
             }
+            borderClass="border-blue-200"
+            iconClass="bg-blue-50 text-blue-600"
           />
 
           <StatCard
@@ -608,6 +606,8 @@ export default function AppointmentsPage() {
             icon={
               <HeartPulse className="h-5 w-5" />
             }
+            borderClass="border-violet-200"
+            iconClass="bg-violet-50 text-violet-600"
           />
 
           <StatCard
@@ -616,6 +616,8 @@ export default function AppointmentsPage() {
             icon={
               <CheckCircle2 className="h-5 w-5" />
             }
+            borderClass="border-emerald-200"
+            iconClass="bg-emerald-50 text-emerald-600"
           />
         </div>
 
@@ -623,7 +625,7 @@ export default function AppointmentsPage() {
             FILTERS
         ================================================= */}
 
-        <motion.div
+        <motion.section
           initial={{
             opacity: 0,
             y: 15,
@@ -632,14 +634,42 @@ export default function AppointmentsPage() {
             opacity: 1,
             y: 0,
           }}
-          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          className="rounded-2xl border border-violet-200 bg-white p-4 shadow-sm sm:p-5"
         >
+          {/* Filter heading */}
+
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
+            <div className="flex items-center gap-3">
+
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                <Search className="h-4 w-4" />
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Find Appointments
+                </h2>
+
+                <p className="text-xs text-slate-500">
+                  Search and filter the appointment
+                  schedule
+                </p>
+              </div>
+            </div>
+
+            <span className="w-fit rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-violet-700">
+              Filters
+            </span>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-3">
 
             {/* SEARCH */}
 
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
               <input
                 type="text"
@@ -650,46 +680,49 @@ export default function AppointmentsPage() {
                   )
                 }
                 placeholder="Search patient, doctor or ID..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-2 focus:ring-cyan-100"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-100"
               />
             </div>
 
             {/* STATUS */}
 
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(
-                  event.target
-                    .value as
-                    | "ALL"
-                    | AppointmentStatus
-                )
-              }
-              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700 outline-none focus:border-cyan-400 focus:bg-white"
-            >
-              <option value="ALL">
-                All Statuses
-              </option>
+            <div className="relative">
 
-              {statusOptions.map(
-                (status) => (
-                  <option
-                    key={status}
-                    value={status}
-                  >
-                    {formatStatus(
-                      status
-                    )}
-                  </option>
-                )
-              )}
-            </select>
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(
+                    event.target.value as
+                      | "ALL"
+                      | AppointmentStatus
+                  )
+                }
+                className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm text-slate-700 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-100"
+              >
+                <option value="ALL">
+                  All Statuses
+                </option>
+
+                {statusOptions.map(
+                  (status) => (
+                    <option
+                      key={status}
+                      value={status}
+                    >
+                      {formatStatus(status)}
+                    </option>
+                  )
+                )}
+              </select>
+
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </div>
 
             {/* DATE */}
 
             <div className="relative">
-              <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
               <input
                 type="date"
@@ -699,27 +732,25 @@ export default function AppointmentsPage() {
                     event.target.value
                   )
                 }
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none focus:border-cyan-400 focus:bg-white focus:ring-2 focus:ring-cyan-100"
+                className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-16 text-sm text-slate-700 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-100"
               />
-
-              {/* TODAY BUTTON */}
 
               <button
                 type="button"
                 onClick={handleToday}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-cyan-50 px-2 py-1 text-[10px] font-semibold text-cyan-700 transition hover:bg-cyan-100"
+                className="absolute right-2 top-1/2 cursor-pointer -translate-y-1/2 rounded-lg bg-cyan-50 px-2.5 py-1.5 text-[10px] font-bold text-cyan-700 transition hover:bg-cyan-100 active:scale-95"
               >
                 Today
               </button>
             </div>
           </div>
-        </motion.div>
+        </motion.section>
 
         {/* =================================================
-            APPOINTMENTS TABLE
+            APPOINTMENT SCHEDULE
         ================================================= */}
 
-        <motion.div
+        <motion.section
           initial={{
             opacity: 0,
             y: 15,
@@ -731,45 +762,58 @@ export default function AppointmentsPage() {
           transition={{
             delay: 0.1,
           }}
-          className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+          className="overflow-hidden rounded-2xl border border-cyan-200 bg-white shadow-sm"
         >
 
           {/* TABLE HEADER */}
 
-          <div className="border-b border-slate-100 px-5 py-4">
-            <div className="flex items-center justify-between">
+          <div className="border-b border-cyan-100 bg-gradient-to-r from-cyan-50/80 via-white to-blue-50/70 px-4 py-4 sm:px-5">
 
-              <div>
-                <h2 className="font-semibold text-slate-900">
-                  Appointment Schedule
-                </h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-                <p className="mt-1 text-xs text-slate-500">
-                  {filteredAppointments.length}{" "}
-                  appointment
-                  {filteredAppointments.length !==
-                  1
-                    ? "s"
-                    : ""}{" "}
-                  displayed
-                </p>
+              <div className="flex items-center gap-3">
+
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700">
+                  <CalendarDays className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <h2 className="font-semibold text-slate-900">
+                    Appointment Schedule
+                  </h2>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    {filteredAppointments.length}{" "}
+                    appointment
+                    {filteredAppointments.length !==
+                    1
+                      ? "s"
+                      : ""}{" "}
+                    displayed
+                  </p>
+                </div>
               </div>
 
-              <div className="hidden items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 sm:flex">
-                <CalendarDays className="h-4 w-4 text-cyan-600" />
+              <div className="flex w-fit items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 shadow-sm">
 
-                <span className="text-xs font-medium text-slate-600">
+                <CalendarDays className="h-4 w-4 text-blue-600" />
+
+                <span className="text-xs font-semibold text-slate-600">
                   {dateFilter}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* LOADING */}
+          {/* =================================================
+              LOADING
+          ================================================= */}
 
           {isLoading ? (
             <div className="flex min-h-[300px] items-center justify-center">
+
               <div className="flex items-center gap-3 text-sm text-slate-500">
+
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-cyan-600" />
 
                 Loading appointments...
@@ -778,30 +822,29 @@ export default function AppointmentsPage() {
           ) : filteredAppointments.length ===
             0 ? (
 
-            /* EMPTY */
+            /* =================================================
+               EMPTY STATE
+            ================================================= */
 
-            <div className="flex min-h-[300px] flex-col items-center justify-center px-6 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-                <CalendarDays className="h-7 w-7 text-slate-400" />
+            <div className="flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
+
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-200 bg-cyan-50">
+                <CalendarDays className="h-8 w-8 text-cyan-500" />
               </div>
 
-              <h3 className="mt-4 font-semibold text-slate-800">
+              <h3 className="mt-5 text-base font-bold text-slate-800">
                 No appointments found
               </h3>
 
-              <p className="mt-1 max-w-sm text-sm text-slate-500">
-                There are no appointments
-                for the selected date.
+              <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">
+                There are no appointments for
+                the selected date and filters.
               </p>
 
               <button
                 type="button"
-                onClick={() =>
-                  router.push(
-                    "/appointments/new"
-                  )
-                }
-                className="mt-4 flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-cyan-700"
+                onClick={openNewAppointment}
+                className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-700 hover:to-blue-700 active:translate-y-0"
               >
                 <Plus className="h-4 w-4" />
 
@@ -815,6 +858,7 @@ export default function AppointmentsPage() {
               ================================================= */}
 
               <div className="hidden overflow-x-auto lg:block">
+
                 <table className="w-full">
 
                   <thead>
@@ -850,10 +894,8 @@ export default function AppointmentsPage() {
                     {filteredAppointments.map(
                       (appointment) => (
                         <tr
-                          key={
-                            appointment.id
-                          }
-                          className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50"
+                          key={appointment.id}
+                          className="border-b border-slate-100 transition last:border-0 hover:bg-cyan-50/30"
                         >
 
                           {/* APPOINTMENT */}
@@ -861,15 +903,13 @@ export default function AppointmentsPage() {
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
 
-                              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-600">
                                 <CalendarDays className="h-4 w-4" />
                               </div>
 
                               <div>
                                 <p className="text-sm font-semibold text-slate-800">
-                                  {
-                                    appointment.id
-                                  }
+                                  {appointment.id}
                                 </p>
 
                                 <p className="text-xs text-slate-400">
@@ -881,7 +921,7 @@ export default function AppointmentsPage() {
                               </div>
 
                               {appointment.emergency && (
-                                <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-600">
+                                <span className="rounded-full border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-600">
                                   EMERGENCY
                                 </span>
                               )}
@@ -897,15 +937,11 @@ export default function AppointmentsPage() {
 
                               <div>
                                 <p className="text-sm font-medium text-slate-700">
-                                  {
-                                    appointment.patientName
-                                  }
+                                  {appointment.patientName}
                                 </p>
 
                                 <p className="text-xs text-slate-400">
-                                  {
-                                    appointment.patientId
-                                  }
+                                  {appointment.patientId}
                                 </p>
                               </div>
                             </div>
@@ -920,15 +956,11 @@ export default function AppointmentsPage() {
 
                               <div>
                                 <p className="text-sm font-medium text-slate-700">
-                                  {
-                                    appointment.doctorName
-                                  }
+                                  {appointment.doctorName}
                                 </p>
 
                                 <p className="text-xs text-slate-400">
-                                  {
-                                    appointment.department
-                                  }
+                                  {appointment.department}
                                 </p>
                               </div>
                             </div>
@@ -938,15 +970,11 @@ export default function AppointmentsPage() {
 
                           <td className="px-5 py-4">
                             <p className="text-sm font-medium text-slate-700">
-                              {
-                                appointment.date
-                              }
+                              {appointment.date}
                             </p>
 
                             <p className="mt-1 text-xs text-slate-400">
-                              {
-                                appointment.time
-                              }
+                              {appointment.time}
                             </p>
                           </td>
 
@@ -987,28 +1015,25 @@ export default function AppointmentsPage() {
               ================================================= */}
 
               <div className="divide-y divide-slate-100 lg:hidden">
+
                 {filteredAppointments.map(
                   (appointment) => (
                     <div
-                      key={
-                        appointment.id
-                      }
-                      className="p-5"
+                      key={appointment.id}
+                      className="p-4 sm:p-5"
                     >
 
                       <div className="flex items-start justify-between gap-4">
 
                         <div className="flex min-w-0 gap-3">
 
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-600">
                             <CalendarDays className="h-5 w-5" />
                           </div>
 
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-slate-800">
-                              {
-                                appointment.id
-                              }
+                              {appointment.id}
                             </p>
 
                             <p className="mt-1 text-xs text-slate-400">
@@ -1066,7 +1091,12 @@ export default function AppointmentsPage() {
                         />
                       </div>
 
-                      <div className="mt-4">
+                      <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/40 p-3">
+
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-blue-600">
+                          Appointment Status
+                        </p>
+
                         <StatusSelect
                           appointment={
                             appointment
@@ -1085,7 +1115,7 @@ export default function AppointmentsPage() {
               </div>
             </>
           )}
-        </motion.div>
+        </motion.section>
       </div>
     </div>
   );
@@ -1099,16 +1129,27 @@ function StatCard({
   label,
   value,
   icon,
+  borderClass,
+  iconClass,
 }: {
   label: string;
   value: number;
-  icon: React.ReactNode;
+  icon: ReactNode;
+  borderClass: string;
+  iconClass: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <motion.div
+      whileHover={{
+        y: -2,
+      }}
+      className={`rounded-2xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5 ${borderClass}`}
+    >
       <div className="flex items-center justify-between">
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+        <div
+          className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconClass}`}
+        >
           {icon}
         </div>
       </div>
@@ -1117,10 +1158,10 @@ function StatCard({
         {value}
       </p>
 
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs font-medium text-slate-500">
         {label}
       </p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1185,11 +1226,10 @@ function StatusSelect({
         onChange={(event) =>
           onChange(
             appointment.id,
-            event.target
-              .value as AppointmentStatus
+            event.target.value as AppointmentStatus
           )
         }
-        className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-9 text-xs font-medium text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+        className="h-10 w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-9 text-xs font-medium text-slate-700 outline-none transition hover:border-cyan-300 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
       >
         {allowedStatuses.map(
           (status) => (
@@ -1197,9 +1237,7 @@ function StatusSelect({
               key={status}
               value={status}
             >
-              {formatStatus(
-                status
-              )}
+              {formatStatus(status)}
             </option>
           )
         )}
@@ -1219,12 +1257,12 @@ function InfoItem({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-3">
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
 
       <div className="flex items-center gap-2 text-slate-400">
         {icon}
