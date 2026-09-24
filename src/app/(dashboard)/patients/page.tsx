@@ -34,6 +34,19 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 /* ============================================================
+   STORAGE CONSTANTS
+============================================================ */
+
+const PATIENTS_STORAGE_KEY = "medcore_patients";
+const DOCTORS_STORAGE_KEY = "medcore_doctors";
+
+const PATIENTS_UPDATED_EVENT =
+  "medcore-patients-updated";
+
+const DOCTORS_UPDATED_EVENT =
+  "medcore-doctors-updated";
+
+/* ============================================================
    PATIENT TYPE
 ============================================================ */
 
@@ -67,6 +80,31 @@ type Patient = {
 };
 
 /* ============================================================
+   DOCTOR TYPE
+   Matches Doctors Module localStorage structure
+============================================================ */
+
+type DoctorStatus =
+  | "Available"
+  | "Busy"
+  | "On Leave";
+
+type Doctor = {
+  id: number | string;
+  name: string;
+  specialization: string;
+  department: string;
+  qualification: string;
+  experience: string;
+  fee: string;
+  email: string;
+  phone: string;
+  room: string;
+  workingHours: string;
+  status: DoctorStatus;
+};
+
+/* ============================================================
    ADD PATIENT VALIDATION
 ============================================================ */
 
@@ -85,9 +123,12 @@ const addPatientSchema = z.object({
     .string()
     .min(1, "Date of birth is required"),
 
-  gender: z.enum(["Male", "Female", "Other"], {
-    message: "Please select gender",
-  }),
+  gender: z.enum(
+    ["Male", "Female", "Other"],
+    {
+      message: "Please select gender",
+    }
+  ),
 
   phone: z
     .string()
@@ -117,7 +158,10 @@ const addPatientSchema = z.object({
   emergencyContactName: z
     .string()
     .trim()
-    .min(2, "Emergency contact name is required"),
+    .min(
+      2,
+      "Emergency contact name is required"
+    ),
 
   emergencyContactPhone: z
     .string()
@@ -128,22 +172,38 @@ const addPatientSchema = z.object({
 
   emergencyContactRelation: z
     .string()
-    .min(1, "Please select relationship"),
+    .min(
+      1,
+      "Please select relationship"
+    ),
 
-  medicalHistory: z.string().optional(),
+  medicalHistory: z
+    .string()
+    .optional(),
 
-  allergies: z.string().optional(),
+  allergies: z
+    .string()
+    .optional(),
 
-  currentMedications: z.string().optional(),
+  currentMedications: z
+    .string()
+    .optional(),
 
-  symptoms: z.string().optional(),
+  symptoms: z
+    .string()
+    .optional(),
 
-  diagnosis: z.string().optional(),
+  diagnosis: z
+    .string()
+    .optional(),
 
-  doctor: z.string().optional(),
+  doctor: z
+    .string()
+    .optional(),
 });
 
-type AddPatientForm = z.infer<typeof addPatientSchema>;
+type AddPatientForm =
+  z.infer<typeof addPatientSchema>;
 
 /* ============================================================
    DEFAULT PATIENTS
@@ -249,6 +309,126 @@ const defaultPatients: Patient[] = [
 ];
 
 /* ============================================================
+   FALLBACK DOCTORS
+   Same doctors as Doctors Module
+============================================================ */
+
+const defaultDoctors: Doctor[] = [
+  {
+    id: 1,
+    name: "Dr. Ananya Reddy",
+    specialization: "Cardiologist",
+    department: "Cardiology",
+    qualification: "MBBS, MD, DM",
+    experience: "12",
+    fee: "1200",
+    email: "ananya.reddy@medcore.com",
+    phone: "9876543210",
+    room: "204",
+    workingHours: "09:00 AM - 02:00 PM",
+    status: "Available",
+  },
+  {
+    id: 2,
+    name: "Dr. Rahul Sharma",
+    specialization: "Neurologist",
+    department: "Neurology",
+    qualification: "MBBS, MD, DM",
+    experience: "10",
+    fee: "1500",
+    email: "rahul.sharma@medcore.com",
+    phone: "9876501234",
+    room: "301",
+    workingHours: "10:00 AM - 04:00 PM",
+    status: "Busy",
+  },
+  {
+    id: 3,
+    name: "Dr. Priya Nair",
+    specialization: "Pediatrician",
+    department: "Pediatrics",
+    qualification: "MBBS, MD",
+    experience: "8",
+    fee: "900",
+    email: "priya.nair@medcore.com",
+    phone: "9988776655",
+    room: "112",
+    workingHours: "08:00 AM - 01:00 PM",
+    status: "Available",
+  },
+  {
+    id: 4,
+    name: "Dr. Karthik Rao",
+    specialization: "Orthopedic Surgeon",
+    department: "Orthopedics",
+    qualification: "MBBS, MS",
+    experience: "14",
+    fee: "1300",
+    email: "karthik.rao@medcore.com",
+    phone: "9123456789",
+    room: "405",
+    workingHours: "11:00 AM - 05:00 PM",
+    status: "On Leave",
+  },
+  {
+    id: 5,
+    name: "Dr. Sneha Kapoor",
+    specialization: "Dermatologist",
+    department: "Dermatology",
+    qualification: "MBBS, MD",
+    experience: "7",
+    fee: "1000",
+    email: "sneha.kapoor@medcore.com",
+    phone: "9012345678",
+    room: "208",
+    workingHours: "09:30 AM - 03:30 PM",
+    status: "Available",
+  },
+  {
+    id: 6,
+    name: "Dr. Arjun Verma",
+    specialization: "General Physician",
+    department: "General Medicine",
+    qualification: "MBBS, MD",
+    experience: "9",
+    fee: "800",
+    email: "arjun.verma@medcore.com",
+    phone: "9345678901",
+    room: "105",
+    workingHours: "08:30 AM - 02:30 PM",
+    status: "Busy",
+  },
+  {
+    id: 7,
+    name: "Dr. Meera Iyer",
+    specialization: "Gynecologist",
+    department: "Gynecology",
+    qualification: "MBBS, MS",
+    experience: "11",
+    fee: "1100",
+    email: "meera.iyer@medcore.com",
+    phone: "9456789012",
+    room: "309",
+    workingHours: "10:00 AM - 04:00 PM",
+    status: "Available",
+  },
+  {
+    id: 8,
+    name: "Dr. Vikram Singh",
+    specialization: "ENT Specialist",
+    department: "ENT",
+    qualification: "MBBS, MS",
+    experience: "6",
+    fee: "950",
+    email: "vikram.singh@medcore.com",
+    phone: "9567890123",
+    room: "216",
+    workingHours: "09:00 AM - 01:00 PM",
+    status: "Available",
+  },
+];
+
+/* ============================================================
    HELPERS
 ============================================================ */
 
@@ -278,11 +458,146 @@ function getPhoneDigits(phone: string) {
 }
 
 /* ============================================================
+   NORMALIZE DOCTORS
+============================================================ */
+
+function normalizeDoctors(
+  value: unknown
+): Doctor[] {
+  let source: unknown = value;
+
+  if (
+    source &&
+    typeof source === "object" &&
+    !Array.isArray(source) &&
+    "doctors" in source
+  ) {
+    source = (
+      source as {
+        doctors?: unknown;
+      }
+    ).doctors;
+  }
+
+  if (!Array.isArray(source)) {
+    return [];
+  }
+
+  return source
+    .map((item): Doctor | null => {
+      if (
+        !item ||
+        typeof item !== "object"
+      ) {
+        return null;
+      }
+
+      const record =
+        item as Record<string, unknown>;
+
+      const rawId = record.id;
+
+      if (
+        rawId === undefined ||
+        rawId === null
+      ) {
+        return null;
+      }
+
+      const name =
+        typeof record.name === "string"
+          ? record.name
+          : "";
+
+      if (!name.trim()) {
+        return null;
+      }
+
+      return {
+        id:
+          typeof rawId === "number" ||
+          typeof rawId === "string"
+            ? rawId
+            : String(rawId),
+
+        name: name.trim(),
+
+        specialization:
+          typeof record.specialization ===
+          "string"
+            ? record.specialization
+            : "",
+
+        department:
+          typeof record.department ===
+          "string"
+            ? record.department
+            : "",
+
+        qualification:
+          typeof record.qualification ===
+          "string"
+            ? record.qualification
+            : "",
+
+        experience:
+          typeof record.experience ===
+          "string"
+            ? record.experience
+            : String(
+                record.experience ?? ""
+              ),
+
+        fee:
+          typeof record.fee === "string"
+            ? record.fee
+            : String(record.fee ?? ""),
+
+        email:
+          typeof record.email === "string"
+            ? record.email
+            : "",
+
+        phone:
+          typeof record.phone === "string"
+            ? record.phone
+            : "",
+
+        room:
+          typeof record.room === "string"
+            ? record.room
+            : String(
+                record.room ?? ""
+              ),
+
+        workingHours:
+          typeof record.workingHours ===
+          "string"
+            ? record.workingHours
+            : "",
+
+        status:
+          record.status === "Busy" ||
+          record.status === "On Leave"
+            ? record.status
+            : "Available",
+      };
+    })
+    .filter(
+      (
+        doctor
+      ): doctor is Doctor =>
+        doctor !== null
+    );
+}
+
+/* ============================================================
    MAIN PAGE
 ============================================================ */
 
 export default function PatientsPage() {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] =
+    useState("");
 
   const [statusFilter, setStatusFilter] =
     useState("All");
@@ -291,7 +606,12 @@ export default function PatientsPage() {
     useState(false);
 
   const [patients, setPatients] =
-    useState<Patient[]>(defaultPatients);
+    useState<Patient[]>(
+      defaultPatients
+    );
+
+  const [doctors, setDoctors] =
+    useState<Doctor[]>(defaultDoctors);
 
   const [showAddPatient, setShowAddPatient] =
     useState(false);
@@ -309,35 +629,158 @@ export default function PatientsPage() {
     useState<Patient | null>(null);
 
   /* ==========================================================
-     LOAD SAVED PATIENTS
+     LOAD PATIENTS + DOCTORS
   ========================================================== */
 
   useEffect(() => {
-    try {
-      const savedPatients =
-        localStorage.getItem(
-          "medcore_patients"
-        );
+    const loadPatients = () => {
+      try {
+        const savedPatients =
+          localStorage.getItem(
+            PATIENTS_STORAGE_KEY
+          );
 
-      if (savedPatients) {
-        const parsedPatients =
-          JSON.parse(savedPatients);
+        if (savedPatients) {
+          const parsedPatients =
+            JSON.parse(savedPatients);
 
-        if (Array.isArray(parsedPatients)) {
-          setPatients(parsedPatients);
+          if (
+            Array.isArray(
+              parsedPatients
+            )
+          ) {
+            setPatients(
+              parsedPatients
+            );
+          }
+        } else {
+          localStorage.setItem(
+            PATIENTS_STORAGE_KEY,
+            JSON.stringify(
+              defaultPatients
+            )
+          );
         }
-      } else {
-        localStorage.setItem(
-          "medcore_patients",
-          JSON.stringify(defaultPatients)
+      } catch (error) {
+        console.error(
+          "Failed to load saved patients:",
+          error
         );
       }
-    } catch (error) {
-      console.error(
-        "Failed to load saved patients:",
-        error
+    };
+
+    const loadDoctors = () => {
+      try {
+        const savedDoctors =
+          localStorage.getItem(
+            DOCTORS_STORAGE_KEY
+          );
+
+        if (savedDoctors) {
+          const parsedDoctors =
+            JSON.parse(savedDoctors);
+
+          const normalized =
+            normalizeDoctors(
+              parsedDoctors
+            );
+
+          if (
+            normalized.length > 0
+          ) {
+            setDoctors(normalized);
+            return;
+          }
+        }
+
+        /*
+         * If the Doctors page has not been opened yet,
+         * initialize the same doctor data here.
+         */
+        localStorage.setItem(
+          DOCTORS_STORAGE_KEY,
+          JSON.stringify(
+            defaultDoctors
+          )
+        );
+
+        setDoctors(
+          defaultDoctors
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load doctors:",
+          error
+        );
+
+        setDoctors(
+          defaultDoctors
+        );
+      }
+    };
+
+    loadPatients();
+    loadDoctors();
+
+    const handlePatientsUpdated =
+      () => {
+        loadPatients();
+      };
+
+    const handleDoctorsUpdated =
+      () => {
+        loadDoctors();
+      };
+
+    const handleStorage = (
+      event: StorageEvent
+    ) => {
+      if (
+        event.key ===
+        PATIENTS_STORAGE_KEY
+      ) {
+        loadPatients();
+      }
+
+      if (
+        event.key ===
+        DOCTORS_STORAGE_KEY
+      ) {
+        loadDoctors();
+      }
+    };
+
+    window.addEventListener(
+      PATIENTS_UPDATED_EVENT,
+      handlePatientsUpdated
+    );
+
+    window.addEventListener(
+      DOCTORS_UPDATED_EVENT,
+      handleDoctorsUpdated
+    );
+
+    window.addEventListener(
+      "storage",
+      handleStorage
+    );
+
+    return () => {
+      window.removeEventListener(
+        PATIENTS_UPDATED_EVENT,
+        handlePatientsUpdated
       );
-    }
+
+      window.removeEventListener(
+        DOCTORS_UPDATED_EVENT,
+        handleDoctorsUpdated
+      );
+
+      window.removeEventListener(
+        "storage",
+        handleStorage
+      );
+    };
   }, []);
 
   /* ==========================================================
@@ -345,33 +788,46 @@ export default function PatientsPage() {
   ========================================================== */
 
   const filteredPatients = useMemo(() => {
-    return patients.filter((patient) => {
-      const searchValue =
-        search.toLowerCase().trim();
+    return patients.filter(
+      (patient) => {
+        const searchValue =
+          search
+            .toLowerCase()
+            .trim();
 
-      const matchesSearch =
-        patient.name
-          .toLowerCase()
-          .includes(searchValue) ||
-        patient.id
-          .toLowerCase()
-          .includes(searchValue) ||
-        patient.phone
-          .toLowerCase()
-          .includes(searchValue) ||
-        patient.department
-          .toLowerCase()
-          .includes(searchValue);
+        const matchesSearch =
+          patient.name
+            .toLowerCase()
+            .includes(
+              searchValue
+            ) ||
+          patient.id
+            .toLowerCase()
+            .includes(
+              searchValue
+            ) ||
+          patient.phone
+            .toLowerCase()
+            .includes(
+              searchValue
+            ) ||
+          patient.department
+            .toLowerCase()
+            .includes(
+              searchValue
+            );
 
-      const matchesStatus =
-        statusFilter === "All" ||
-        patient.status === statusFilter;
+        const matchesStatus =
+          statusFilter === "All" ||
+          patient.status ===
+            statusFilter;
 
-      return (
-        matchesSearch &&
-        matchesStatus
-      );
-    });
+        return (
+          matchesSearch &&
+          matchesStatus
+        );
+      }
+    );
   }, [
     patients,
     search,
@@ -381,13 +837,15 @@ export default function PatientsPage() {
   const activePatients =
     patients.filter(
       (patient) =>
-        patient.status === "Active"
+        patient.status ===
+        "Active"
     ).length;
 
   const criticalPatients =
     patients.filter(
       (patient) =>
-        patient.status === "Critical"
+        patient.status ===
+        "Critical"
     ).length;
 
   /* ==========================================================
@@ -397,12 +855,22 @@ export default function PatientsPage() {
   const savePatients = (
     updatedPatients: Patient[]
   ) => {
-    setPatients(updatedPatients);
+    setPatients(
+      updatedPatients
+    );
 
     try {
       localStorage.setItem(
-        "medcore_patients",
-        JSON.stringify(updatedPatients)
+        PATIENTS_STORAGE_KEY,
+        JSON.stringify(
+          updatedPatients
+        )
+      );
+
+      window.dispatchEvent(
+        new Event(
+          PATIENTS_UPDATED_EVENT
+        )
       );
     } catch (error) {
       console.error(
@@ -421,16 +889,25 @@ export default function PatientsPage() {
   ) => {
     const highestId =
       existingPatients.reduce(
-        (highest, patient) => {
-          const number = Number(
-            patient.id.replace(
-              /\D/g,
-              ""
-            )
-          );
+        (
+          highest,
+          patient
+        ) => {
+          const number =
+            Number(
+              patient.id.replace(
+                /\D/g,
+                ""
+              )
+            );
 
-          return Number.isFinite(number)
-            ? Math.max(highest, number)
+          return Number.isFinite(
+            number
+          )
+            ? Math.max(
+                highest,
+                number
+              )
             : highest;
         },
         1000
@@ -443,125 +920,152 @@ export default function PatientsPage() {
      ADD PATIENT
   ========================================================== */
 
-  const handleAddPatient = async (
-    data: AddPatientForm
-  ) => {
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1200)
-    );
+  const handleAddPatient =
+    async (
+      data: AddPatientForm
+    ) => {
+      await new Promise(
+        (resolve) =>
+          setTimeout(
+            resolve,
+            1200
+          )
+      );
 
-    const fullName =
-      `${data.firstName} ${data.lastName}`.trim();
+      const fullName =
+        `${data.firstName} ${data.lastName}`.trim();
 
-    const birthDate = new Date(
-      data.dateOfBirth
-    );
+      const birthDate =
+        new Date(
+          data.dateOfBirth
+        );
 
-    const today = new Date();
+      const today =
+        new Date();
 
-    let age =
-      today.getFullYear() -
-      birthDate.getFullYear();
+      let age =
+        today.getFullYear() -
+        birthDate.getFullYear();
 
-    const monthDifference =
-      today.getMonth() -
-      birthDate.getMonth();
+      const monthDifference =
+        today.getMonth() -
+        birthDate.getMonth();
 
-    if (
-      monthDifference < 0 ||
-      (monthDifference === 0 &&
-        today.getDate() <
-          birthDate.getDate())
-    ) {
-      age--;
-    }
+      if (
+        monthDifference < 0 ||
+        (monthDifference === 0 &&
+          today.getDate() <
+            birthDate.getDate())
+      ) {
+        age--;
+      }
 
-    const initials =
-      `${data.firstName.charAt(0)}${data.lastName.charAt(0)}`.toUpperCase();
+      const initials =
+        `${data.firstName.charAt(
+          0
+        )}${data.lastName.charAt(
+          0
+        )}`.toUpperCase();
 
-    const newPatient: Patient = {
-      id: generatePatientId(patients),
+      const newPatient: Patient =
+        {
+          id: generatePatientId(
+            patients
+          ),
 
-      name: fullName,
+          name: fullName,
 
-      age,
+          age,
 
-      gender: data.gender,
+          gender: data.gender,
 
-      phone: formatIndianPhone(
-        data.phone
-      ),
+          phone:
+            formatIndianPhone(
+              data.phone
+            ),
 
-      bloodGroup: data.bloodGroup,
+          bloodGroup:
+            data.bloodGroup,
 
-      department: data.department,
+          department:
+            data.department,
 
-      status: "Active",
+          status: "Active",
 
-      registered:
-        new Date().toLocaleDateString(
-          "en-US",
-          {
-            month: "short",
-            day: "2-digit",
-            year: "numeric",
-          }
-        ),
+          registered:
+            new Date().toLocaleDateString(
+              "en-US",
+              {
+                month: "short",
+                day: "2-digit",
+                year: "numeric",
+              }
+            ),
 
-      avatar: initials,
+          avatar: initials,
 
-      email: data.email,
+          email: data.email,
 
-      dateOfBirth:
-        data.dateOfBirth,
+          dateOfBirth:
+            data.dateOfBirth,
 
-      address: data.address,
+          address:
+            data.address,
 
-      emergencyContactName:
-        data.emergencyContactName,
+          emergencyContactName:
+            data.emergencyContactName,
 
-      emergencyContactPhone:
-        formatIndianPhone(
-          data.emergencyContactPhone
-        ),
+          emergencyContactPhone:
+            formatIndianPhone(
+              data.emergencyContactPhone
+            ),
 
-      emergencyContactRelation:
-        data.emergencyContactRelation,
+          emergencyContactRelation:
+            data.emergencyContactRelation,
 
-      medicalHistory:
-        data.medicalHistory,
+          medicalHistory:
+            data.medicalHistory,
 
-      allergies:
-        data.allergies,
+          allergies:
+            data.allergies,
 
-      currentMedications:
-        data.currentMedications,
+          currentMedications:
+            data.currentMedications,
 
-      symptoms:
-        data.symptoms,
+          symptoms:
+            data.symptoms,
 
-      diagnosis:
-        data.diagnosis,
+          diagnosis:
+            data.diagnosis,
 
-      doctor:
-        data.doctor,
+          doctor:
+            data.doctor,
+        };
+
+      const updatedPatients =
+        [
+          newPatient,
+          ...patients,
+        ];
+
+      savePatients(
+        updatedPatients
+      );
+
+      setShowAddPatient(
+        false
+      );
+
+      setPatientAdded(
+        true
+      );
+
+      setTimeout(() => {
+        setPatientAdded(
+          false
+        );
+      }, 3000);
     };
-
-    const updatedPatients = [
-      newPatient,
-      ...patients,
-    ];
-
-    savePatients(updatedPatients);
-
-    setShowAddPatient(false);
-
-    setPatientAdded(true);
-
-    setTimeout(() => {
-      setPatientAdded(false);
-    }, 3000);
-  };
 
   /* ==========================================================
      DELETE PATIENT
@@ -573,14 +1077,19 @@ export default function PatientsPage() {
     const updatedPatients =
       patients.filter(
         (item) =>
-          item.id !== patient.id
+          item.id !==
+          patient.id
       );
 
-    savePatients(updatedPatients);
+    savePatients(
+      updatedPatients
+    );
 
     setDeletePatient(null);
 
-    setSelectedPatient(null);
+    setSelectedPatient(
+      null
+    );
   };
 
   /* ==========================================================
@@ -591,29 +1100,39 @@ export default function PatientsPage() {
     updatedPatient: Patient
   ) => {
     const updatedPatients =
-      patients.map((patient) =>
-        patient.id ===
-        updatedPatient.id
-          ? updatedPatient
-          : patient
+      patients.map(
+        (patient) =>
+          patient.id ===
+          updatedPatient.id
+            ? updatedPatient
+            : patient
       );
 
-    savePatients(updatedPatients);
+    savePatients(
+      updatedPatients
+    );
 
-    setEditingPatient(null);
+    setEditingPatient(
+      null
+    );
 
-    setSelectedPatient(null);
+    setSelectedPatient(
+      null
+    );
 
-    setPatientAdded(true);
+    setPatientAdded(
+      true
+    );
 
     setTimeout(() => {
-      setPatientAdded(false);
+      setPatientAdded(
+        false
+      );
     }, 3000);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50/20 to-blue-50/30 p-4 sm:p-6 lg:p-8 dark:from-slate-950 dark:via-slate-950 dark:to-cyan-950/10">
-
       <div className="mx-auto max-w-[1600px] space-y-6">
 
         {/* =====================================================
@@ -649,7 +1168,9 @@ export default function PatientsPage() {
           <button
             type="button"
             onClick={() =>
-              setShowAddPatient(true)
+              setShowAddPatient(
+                true
+              )
             }
             className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"
           >
@@ -690,7 +1211,6 @@ export default function PatientsPage() {
         ===================================================== */}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
           <PatientStat
             title="Total Patients"
             value={patients.length.toString()}
@@ -723,7 +1243,6 @@ export default function PatientsPage() {
             icon={Activity}
             gradient="from-orange-500 to-red-600"
           />
-
         </div>
 
         {/* =====================================================
@@ -747,7 +1266,6 @@ export default function PatientsPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
 
             <div className="relative flex-1">
-
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
               <input
@@ -772,14 +1290,14 @@ export default function PatientsPage() {
                   <X className="h-4 w-4" />
                 </button>
               )}
-
             </div>
 
             <button
               type="button"
               onClick={() =>
                 setShowFilters(
-                  (value) => !value
+                  (value) =>
+                    !value
                 )
               }
               className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-600 transition hover:border-cyan-300 hover:bg-cyan-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -798,63 +1316,67 @@ export default function PatientsPage() {
             </button>
 
             <div className="hidden items-center gap-2 lg:flex">
-
               {[
                 "All",
                 "Active",
                 "Critical",
                 "Inactive",
-              ].map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() =>
-                    setStatusFilter(
+              ].map(
+                (status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() =>
+                      setStatusFilter(
+                        status
+                      )
+                    }
+                    className={`cursor-pointer rounded-xl px-4 py-2.5 text-xs font-semibold transition ${
+                      statusFilter ===
                       status
-                    )
-                  }
-                  className={`cursor-pointer rounded-xl px-4 py-2.5 text-xs font-semibold transition ${
-                    statusFilter === status
-                      ? "bg-cyan-600 text-white shadow-md shadow-cyan-500/20"
-                      : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
-
+                        ? "bg-cyan-600 text-white shadow-md shadow-cyan-500/20"
+                        : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {status}
+                  </button>
+                )
+              )}
             </div>
           </div>
 
           {showFilters && (
             <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4 sm:grid-cols-4 lg:hidden dark:border-slate-800">
-
               {[
                 "All",
                 "Active",
                 "Critical",
                 "Inactive",
-              ].map((status) => (
-                <button
-                  key={`mobile-${status}`}
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter(
+              ].map(
+                (status) => (
+                  <button
+                    key={`mobile-${status}`}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter(
+                        status
+                      );
+
+                      setShowFilters(
+                        false
+                      );
+                    }}
+                    className={`cursor-pointer rounded-xl px-3 py-2.5 text-xs font-semibold ${
+                      statusFilter ===
                       status
-                    );
-
-                    setShowFilters(false);
-                  }}
-                  className={`cursor-pointer rounded-xl px-3 py-2.5 text-xs font-semibold ${
-                    statusFilter === status
-                      ? "bg-cyan-600 text-white"
-                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
-
+                        ? "bg-cyan-600 text-white"
+                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                    }`}
+                  >
+                    {status}
+                  </button>
+                )
+              )}
             </div>
           )}
         </motion.div>
@@ -877,9 +1399,7 @@ export default function PatientsPage() {
           }}
           className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
         >
-
           <div className="flex flex-col gap-2 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
-
             <div>
               <h2 className="font-bold text-slate-900 dark:text-white">
                 Patient Directory
@@ -894,20 +1414,14 @@ export default function PatientsPage() {
               <CalendarDays className="h-4 w-4" />
               Recently registered
             </div>
-
           </div>
 
-          {/* ==================================================
-              DESKTOP TABLE
-          ================================================== */}
+          {/* DESKTOP TABLE */}
 
           <div className="hidden overflow-x-auto md:block">
-
             <table className="w-full min-w-[1000px]">
-
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/70 text-left dark:border-slate-800 dark:bg-slate-800/40">
-
                   {[
                     "Patient",
                     "ID",
@@ -917,25 +1431,31 @@ export default function PatientsPage() {
                     "Department",
                     "Status",
                     "Actions",
-                  ].map((heading) => (
-                    <th
-                      key={heading}
-                      className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 first:px-5"
-                    >
-                      {heading}
-                    </th>
-                  ))}
-
+                  ].map(
+                    (heading) => (
+                      <th
+                        key={
+                          heading
+                        }
+                        className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 first:px-5"
+                      >
+                        {heading}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-
                 {filteredPatients.map(
                   (patient) => (
                     <PatientTableRow
-                      key={patient.id}
-                      patient={patient}
+                      key={
+                        patient.id
+                      }
+                      patient={
+                        patient
+                      }
                       onView={() =>
                         setSelectedPatient(
                           patient
@@ -954,23 +1474,20 @@ export default function PatientsPage() {
                     />
                   )
                 )}
-
               </tbody>
-
             </table>
           </div>
 
-          {/* ==================================================
-              MOBILE
-          ================================================== */}
+          {/* MOBILE */}
 
           <div className="divide-y divide-slate-100 md:hidden dark:divide-slate-800">
-
             {filteredPatients.map(
               (patient) => (
                 <PatientMobileCard
                   key={`mobile-${patient.id}`}
-                  patient={patient}
+                  patient={
+                    patient
+                  }
                   onView={() =>
                     setSelectedPatient(
                       patient
@@ -989,12 +1506,11 @@ export default function PatientsPage() {
                 />
               )
             )}
-
           </div>
 
-          {filteredPatients.length === 0 && (
+          {filteredPatients.length ===
+            0 && (
             <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800">
                 <Users className="h-6 w-6 text-slate-400" />
               </div>
@@ -1006,83 +1522,97 @@ export default function PatientsPage() {
               <p className="mt-1 text-sm text-slate-500">
                 Try changing your search or filter.
               </p>
-
             </div>
           )}
-
         </motion.div>
       </div>
 
-      {/* ============================================================
-          ADD PATIENT MODAL
-      ============================================================ */}
+      {/* ADD PATIENT */}
 
       <AnimatePresence>
         {showAddPatient && (
           <AddPatientModal
+            doctors={doctors}
             onClose={() =>
-              setShowAddPatient(false)
+              setShowAddPatient(
+                false
+              )
             }
-            onSubmit={handleAddPatient}
+            onSubmit={
+              handleAddPatient
+            }
           />
         )}
       </AnimatePresence>
 
-      {/* ============================================================
-          VIEW PATIENT MODAL
-      ============================================================ */}
+      {/* VIEW PATIENT */}
 
       <AnimatePresence>
         {selectedPatient && (
           <PatientDetailsModal
-            patient={selectedPatient}
+            patient={
+              selectedPatient
+            }
             onClose={() =>
-              setSelectedPatient(null)
+              setSelectedPatient(
+                null
+              )
             }
             onEdit={() => {
               setEditingPatient(
                 selectedPatient
               );
 
-              setSelectedPatient(null);
+              setSelectedPatient(
+                null
+              );
             }}
             onDelete={() => {
               setDeletePatient(
                 selectedPatient
               );
 
-              setSelectedPatient(null);
+              setSelectedPatient(
+                null
+              );
             }}
           />
         )}
       </AnimatePresence>
 
-      {/* ============================================================
-          EDIT PATIENT MODAL
-      ============================================================ */}
+      {/* EDIT PATIENT */}
 
       <AnimatePresence>
         {editingPatient && (
           <EditPatientModal
-            patient={editingPatient}
-            onClose={() =>
-              setEditingPatient(null)
+            patient={
+              editingPatient
             }
-            onSave={handleEditPatient}
+            doctors={doctors}
+            onClose={() =>
+              setEditingPatient(
+                null
+              )
+            }
+            onSave={
+              handleEditPatient
+            }
           />
         )}
       </AnimatePresence>
 
-      {/* ============================================================
-          DELETE CONFIRMATION
-      ============================================================ */}
+      {/* DELETE */}
 
       <AnimatePresence>
         {deletePatient && (
           <DeletePatientModal
-            patient={deletePatient}
+            patient={
+              deletePatient
+            }
             onCancel={() =>
-              setDeletePatient(null)
+              setDeletePatient(
+                null
+              )
             }
             onConfirm={() =>
               handleDeletePatient(
@@ -1101,9 +1631,11 @@ export default function PatientsPage() {
 ============================================================ */
 
 function AddPatientModal({
+  doctors,
   onClose,
   onSubmit,
 }: {
+  doctors: Doctor[];
   onClose: () => void;
   onSubmit: (
     data: AddPatientForm
@@ -1117,63 +1649,86 @@ function AddPatientModal({
       errors,
       isSubmitting,
     },
-  } = useForm<AddPatientForm>({
-    resolver:
-      zodResolver(addPatientSchema),
+  } =
+    useForm<AddPatientForm>({
+      resolver:
+        zodResolver(
+          addPatientSchema
+        ),
 
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      dateOfBirth: "",
-      phone: "",
-      email: "",
-      gender: undefined,
-      bloodGroup: "",
-      department: "",
-      address: "",
-      emergencyContactName: "",
-      emergencyContactPhone: "",
-      emergencyContactRelation: "",
-      medicalHistory: "",
-      allergies: "",
-      currentMedications: "",
-      symptoms: "",
-      diagnosis: "",
-      doctor: "",
-    },
-  });
+      defaultValues: {
+        firstName: "",
+        lastName: "",
+        dateOfBirth: "",
+        phone: "",
+        email: "",
+        gender: undefined,
+        bloodGroup: "",
+        department: "",
+        address: "",
+        emergencyContactName:
+          "",
+        emergencyContactPhone:
+          "",
+        emergencyContactRelation:
+          "",
+        medicalHistory: "",
+        allergies: "",
+        currentMedications:
+          "",
+        symptoms: "",
+        diagnosis: "",
+        doctor: "",
+      },
+    });
 
   const handlePhoneChange = (
     value: string
   ) => {
-    const digits = value
-      .replace(/\D/g, "")
-      .slice(0, 10);
-
-    setValue("phone", digits, {
-      shouldValidate: true,
-      shouldDirty: true,
-      shouldTouch: true,
-    });
-  };
-
-  const handleEmergencyPhoneChange = (
-    value: string
-  ) => {
-    const digits = value
-      .replace(/\D/g, "")
-      .slice(0, 10);
+    const digits =
+      value
+        .replace(/\D/g, "")
+        .slice(0, 10);
 
     setValue(
-      "emergencyContactPhone",
+      "phone",
       digits,
       {
-        shouldValidate: true,
-        shouldDirty: true,
-        shouldTouch: true,
+        shouldValidate:
+          true,
+        shouldDirty:
+          true,
+        shouldTouch:
+          true,
       }
     );
   };
+
+  const handleEmergencyPhoneChange =
+    (
+      value: string
+    ) => {
+      const digits =
+        value
+          .replace(
+            /\D/g,
+            ""
+          )
+          .slice(0, 10);
+
+      setValue(
+        "emergencyContactPhone",
+        digits,
+        {
+          shouldValidate:
+            true,
+          shouldDirty:
+            true,
+          shouldTouch:
+            true,
+        }
+      );
+    };
 
   return (
     <motion.div
@@ -1187,16 +1742,18 @@ function AddPatientModal({
         opacity: 0,
       }}
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
-      onMouseDown={(event) => {
+      onMouseDown={(
+        event
+      ) => {
         if (
           !isSubmitting &&
-          event.target === event.currentTarget
+          event.target ===
+            event.currentTarget
         ) {
           onClose();
         }
       }}
     >
-
       <motion.div
         initial={{
           opacity: 0,
@@ -1218,11 +1775,8 @@ function AddPatientModal({
         }}
         className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900"
       >
-
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-
           <div className="flex items-center gap-3">
-
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg">
               <UserPlus className="h-5 w-5" />
             </div>
@@ -1236,25 +1790,26 @@ function AddPatientModal({
                 Register a new patient in MedCore HMS
               </p>
             </div>
-
           </div>
 
           <button
             type="button"
-            disabled={isSubmitting}
+            disabled={
+              isSubmitting
+            }
             onClick={onClose}
             className="cursor-pointer rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             <X className="h-5 w-5" />
           </button>
-
         </div>
 
         <form
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(
+            onSubmit
+          )}
           className="overflow-y-auto"
         >
-
           <div className="space-y-7 p-5 sm:p-6">
 
             <FormSection
@@ -1262,21 +1817,24 @@ function AddPatientModal({
               title="Patient Information"
               description="Basic demographic and contact details"
             >
-
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
                 <FormField
                   label="First Name"
                   required
                   error={
-                    errors.firstName?.message
+                    errors
+                      .firstName
+                      ?.message
                   }
                 >
                   <input
                     {...register(
                       "firstName"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     placeholder="Enter first name"
                     className={inputClass(
                       !!errors.firstName
@@ -1288,14 +1846,18 @@ function AddPatientModal({
                   label="Last Name"
                   required
                   error={
-                    errors.lastName?.message
+                    errors
+                      .lastName
+                      ?.message
                   }
                 >
                   <input
                     {...register(
                       "lastName"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     placeholder="Enter last name"
                     className={inputClass(
                       !!errors.lastName
@@ -1307,7 +1869,9 @@ function AddPatientModal({
                   label="Date of Birth"
                   required
                   error={
-                    errors.dateOfBirth?.message
+                    errors
+                      .dateOfBirth
+                      ?.message
                   }
                 >
                   <input
@@ -1315,7 +1879,9 @@ function AddPatientModal({
                     {...register(
                       "dateOfBirth"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     className={inputClass(
                       !!errors.dateOfBirth
                     )}
@@ -1326,14 +1892,18 @@ function AddPatientModal({
                   label="Gender"
                   required
                   error={
-                    errors.gender?.message
+                    errors
+                      .gender
+                      ?.message
                   }
                 >
                   <select
                     {...register(
                       "gender"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     className={inputClass(
                       !!errors.gender
                     )}
@@ -1360,10 +1930,11 @@ function AddPatientModal({
                   label="Phone"
                   required
                   error={
-                    errors.phone?.message
+                    errors
+                      .phone
+                      ?.message
                   }
                 >
-
                   <div
                     className={`flex h-10 w-full overflow-hidden rounded-xl border bg-slate-50 transition dark:bg-slate-800 ${
                       errors.phone
@@ -1371,7 +1942,6 @@ function AddPatientModal({
                         : "border-slate-200 focus-within:border-cyan-500 dark:border-slate-700"
                     }`}
                   >
-
                     <div className="flex shrink-0 items-center border-r border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                       +91
                     </div>
@@ -1381,7 +1951,9 @@ function AddPatientModal({
                       inputMode="numeric"
                       autoComplete="tel-national"
                       maxLength={10}
-                      disabled={isSubmitting}
+                      disabled={
+                        isSubmitting
+                      }
                       placeholder="10 digit number"
                       {...register(
                         "phone",
@@ -1390,27 +1962,33 @@ function AddPatientModal({
                             event
                           ) =>
                             handlePhoneChange(
-                              event.target.value
+                              event
+                                .target
+                                .value
                             ),
                         }
                       )}
                       className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-white"
                     />
-
                   </div>
-
                 </FormField>
 
                 <FormField
                   label="Email"
                   error={
-                    errors.email?.message
+                    errors
+                      .email
+                      ?.message
                   }
                 >
                   <input
                     type="email"
-                    {...register("email")}
-                    disabled={isSubmitting}
+                    {...register(
+                      "email"
+                    )}
+                    disabled={
+                      isSubmitting
+                    }
                     placeholder="patient@email.com"
                     className={inputClass(
                       !!errors.email
@@ -1422,20 +2000,22 @@ function AddPatientModal({
                   label="Blood Group"
                   required
                   error={
-                    errors.bloodGroup?.message
+                    errors
+                      .bloodGroup
+                      ?.message
                   }
                 >
-
                   <select
                     {...register(
                       "bloodGroup"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     className={inputClass(
                       !!errors.bloodGroup
                     )}
                   >
-
                     <option value="">
                       Select blood group
                     </option>
@@ -1449,37 +2029,43 @@ function AddPatientModal({
                       "AB-",
                       "O+",
                       "O-",
-                    ].map((group) => (
-                      <option
-                        key={group}
-                        value={group}
-                      >
-                        {group}
-                      </option>
-                    ))}
-
+                    ].map(
+                      (group) => (
+                        <option
+                          key={
+                            group
+                          }
+                          value={
+                            group
+                          }
+                        >
+                          {group}
+                        </option>
+                      )
+                    )}
                   </select>
-
                 </FormField>
 
                 <FormField
                   label="Department"
                   required
                   error={
-                    errors.department?.message
+                    errors
+                      .department
+                      ?.message
                   }
                 >
-
                   <select
                     {...register(
                       "department"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     className={inputClass(
                       !!errors.department
                     )}
                   >
-
                     <option value="">
                       Select department
                     </option>
@@ -1519,39 +2105,35 @@ function AddPatientModal({
                     <option>
                       Ophthalmology
                     </option>
-
                   </select>
-
                 </FormField>
 
                 <div className="sm:col-span-2 lg:col-span-2">
-
                   <FormField
                     label="Address"
                     required
                     error={
-                      errors.address?.message
+                      errors
+                        .address
+                        ?.message
                     }
                   >
-
                     <textarea
                       {...register(
                         "address"
                       )}
-                      disabled={isSubmitting}
+                      disabled={
+                        isSubmitting
+                      }
                       rows={2}
                       placeholder="Enter complete address"
                       className={`${inputClass(
                         !!errors.address
                       )} resize-none`}
                     />
-
                   </FormField>
-
                 </div>
-
               </div>
-
             </FormSection>
 
             <FormSection
@@ -1559,7 +2141,6 @@ function AddPatientModal({
               title="Emergency Contact"
               description="Person to contact in case of an emergency"
             >
-
               <div className="grid gap-4 sm:grid-cols-3">
 
                 <FormField
@@ -1571,18 +2152,18 @@ function AddPatientModal({
                       ?.message
                   }
                 >
-
                   <input
                     {...register(
                       "emergencyContactName"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     placeholder="Full name"
                     className={inputClass(
                       !!errors.emergencyContactName
                     )}
                   />
-
                 </FormField>
 
                 <FormField
@@ -1594,7 +2175,6 @@ function AddPatientModal({
                       ?.message
                   }
                 >
-
                   <div
                     className={`flex h-10 w-full overflow-hidden rounded-xl border bg-slate-50 transition dark:bg-slate-800 ${
                       errors.emergencyContactPhone
@@ -1602,7 +2182,6 @@ function AddPatientModal({
                         : "border-slate-200 focus-within:border-cyan-500 dark:border-slate-700"
                     }`}
                   >
-
                     <div className="flex shrink-0 items-center border-r border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                       +91
                     </div>
@@ -1612,7 +2191,9 @@ function AddPatientModal({
                       inputMode="numeric"
                       autoComplete="tel-national"
                       maxLength={10}
-                      disabled={isSubmitting}
+                      disabled={
+                        isSubmitting
+                      }
                       placeholder="10 digit number"
                       {...register(
                         "emergencyContactPhone",
@@ -1621,15 +2202,15 @@ function AddPatientModal({
                             event
                           ) =>
                             handleEmergencyPhoneChange(
-                              event.target.value
+                              event
+                                .target
+                                .value
                             ),
                         }
                       )}
                       className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-white"
                     />
-
                   </div>
-
                 </FormField>
 
                 <FormField
@@ -1641,17 +2222,17 @@ function AddPatientModal({
                       ?.message
                   }
                 >
-
                   <select
                     {...register(
                       "emergencyContactRelation"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     className={inputClass(
                       !!errors.emergencyContactRelation
                     )}
                   >
-
                     <option value="">
                       Select relationship
                     </option>
@@ -1687,13 +2268,9 @@ function AddPatientModal({
                     <option>
                       Other
                     </option>
-
                   </select>
-
                 </FormField>
-
               </div>
-
             </FormSection>
 
             <FormSection
@@ -1701,95 +2278,100 @@ function AddPatientModal({
               title="Medical History"
               description="Previous medical conditions and medications"
             >
-
               <div className="grid gap-4 lg:grid-cols-2">
 
                 <FormField
                   label="Medical History"
                   error={
-                    errors.medicalHistory?.message
+                    errors
+                      .medicalHistory
+                      ?.message
                   }
                 >
-
                   <textarea
                     {...register(
                       "medicalHistory"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     rows={3}
                     placeholder="Previous illnesses, surgeries, chronic conditions..."
                     className={`${inputClass(
                       !!errors.medicalHistory
                     )} resize-none`}
                   />
-
                 </FormField>
 
                 <FormField
                   label="Allergies"
                   error={
-                    errors.allergies?.message
+                    errors
+                      .allergies
+                      ?.message
                   }
                 >
-
                   <textarea
                     {...register(
                       "allergies"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     rows={3}
                     placeholder="Drug, food or environmental allergies..."
                     className={`${inputClass(
                       !!errors.allergies
                     )} resize-none`}
                   />
-
                 </FormField>
 
                 <FormField
                   label="Current Medications"
                   error={
-                    errors.currentMedications?.message
+                    errors
+                      .currentMedications
+                      ?.message
                   }
                 >
-
                   <textarea
                     {...register(
                       "currentMedications"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     rows={3}
                     placeholder="Current medications and dosage..."
                     className={`${inputClass(
                       !!errors.currentMedications
                     )} resize-none`}
                   />
-
                 </FormField>
 
                 <FormField
                   label="Current Symptoms"
                   error={
-                    errors.symptoms?.message
+                    errors
+                      .symptoms
+                      ?.message
                   }
                 >
-
                   <textarea
                     {...register(
                       "symptoms"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     rows={3}
                     placeholder="Describe current symptoms..."
                     className={`${inputClass(
                       !!errors.symptoms
                     )} resize-none`}
                   />
-
                 </FormField>
-
               </div>
-
             </FormSection>
 
             <FormSection
@@ -1797,82 +2379,106 @@ function AddPatientModal({
               title="Clinical Information"
               description="Initial clinical assessment"
             >
-
               <div className="grid gap-4 sm:grid-cols-2">
 
                 <FormField
                   label="Diagnosis"
                   error={
-                    errors.diagnosis?.message
+                    errors
+                      .diagnosis
+                      ?.message
                   }
                 >
-
                   <input
                     {...register(
                       "diagnosis"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     placeholder="Initial diagnosis if available"
                     className={inputClass(
                       !!errors.diagnosis
                     )}
                   />
-
                 </FormField>
 
                 <FormField
                   label="Assigned Doctor"
                   error={
-                    errors.doctor?.message
+                    errors
+                      .doctor
+                      ?.message
                   }
                 >
-
                   <select
                     {...register(
                       "doctor"
                     )}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting
+                    }
                     className={inputClass(
                       !!errors.doctor
                     )}
                   >
-
                     <option value="">
                       Select doctor
                     </option>
 
-                    <option>
-                      Dr. Priya Sharma
-                    </option>
-
-                    <option>
-                      Dr. Rajesh Kumar
-                    </option>
-
-                    <option>
-                      Dr. Anil Reddy
-                    </option>
-
-                    <option>
-                      Dr. Sneha Patel
-                    </option>
-
+                    {doctors.length >
+                    0 ? (
+                      doctors.map(
+                        (
+                          doctor
+                        ) => (
+                          <option
+                            key={String(
+                              doctor.id
+                            )}
+                            value={
+                              doctor.name
+                            }
+                          >
+                            {
+                              doctor.name
+                            }
+                            {" • "}
+                            {
+                              doctor.department
+                            }
+                          </option>
+                        )
+                      )
+                    ) : (
+                      <option
+                        value=""
+                        disabled
+                      >
+                        No doctors available
+                      </option>
+                    )}
                   </select>
 
+                  {doctors.length >
+                    0 && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium text-cyan-600 dark:text-cyan-400">
+                      <Stethoscope className="h-3 w-3" />
+                      {doctors.length} doctors available from Doctors module
+                    </p>
+                  )}
                 </FormField>
-
               </div>
-
             </FormSection>
-
           </div>
 
           <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end dark:border-slate-800 dark:bg-slate-900/80">
-
             <button
               type="button"
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting
+              }
               className="cursor-pointer rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-white disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Cancel
@@ -1880,14 +2486,15 @@ function AddPatientModal({
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting
+              }
               className={`flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 ${
                 isSubmitting
                   ? "cursor-wait opacity-80"
                   : "cursor-pointer hover:-translate-y-0.5"
               }`}
             >
-
               {isSubmitting ? (
                 <>
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -1899,11 +2506,8 @@ function AddPatientModal({
                   Register Patient
                 </>
               )}
-
             </button>
-
           </div>
-
         </form>
       </motion.div>
     </motion.div>
@@ -1911,7 +2515,7 @@ function AddPatientModal({
 }
 
 /* ============================================================
-   PATIENT DETAILS MODAL - REDESIGNED
+   PATIENT DETAILS MODAL
 ============================================================ */
 
 function PatientDetailsModal({
@@ -1948,7 +2552,9 @@ function PatientDetailsModal({
         opacity: 0,
       }}
       className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/65 p-3 backdrop-blur-sm sm:p-5"
-      onMouseDown={(event) => {
+      onMouseDown={(
+        event
+      ) => {
         if (
           event.target ===
           event.currentTarget
@@ -1957,7 +2563,6 @@ function PatientDetailsModal({
         }
       }}
     >
-
       <motion.div
         initial={{
           opacity: 0,
@@ -1980,30 +2585,21 @@ function PatientDetailsModal({
         className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
       >
 
-        {/* ==================================================
-            PROFILE HEADER
-        ================================================== */}
-
         <div className="relative shrink-0 overflow-hidden bg-gradient-to-r from-cyan-600 via-blue-600 to-violet-600">
-
           <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/10" />
 
           <div className="pointer-events-none absolute -bottom-32 right-32 h-56 w-56 rounded-full bg-white/5" />
 
           <div className="relative px-5 pb-5 pt-5 sm:px-7 sm:pb-6 sm:pt-6">
-
             <div className="flex items-start justify-between gap-4">
 
               <div className="flex min-w-0 items-center gap-4">
-
-                {/* AVATAR */}
 
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/30 bg-white/20 text-xl font-bold text-white shadow-lg backdrop-blur-md sm:h-20 sm:w-20 sm:text-2xl">
                   {patient.avatar}
                 </div>
 
                 <div className="min-w-0">
-
                   <div className="flex flex-wrap items-center gap-2">
 
                     <h2 className="truncate text-xl font-bold text-white sm:text-2xl">
@@ -2015,11 +2611,9 @@ function PatientDetailsModal({
                     >
                       {patient.status}
                     </span>
-
                   </div>
 
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-blue-100">
-
                     <span className="font-semibold">
                       {patient.id}
                     </span>
@@ -2031,9 +2625,7 @@ function PatientDetailsModal({
                     <span>
                       {patient.department}
                     </span>
-
                   </div>
-
                 </div>
               </div>
 
@@ -2045,15 +2637,9 @@ function PatientDetailsModal({
               >
                 <X className="h-5 w-5" />
               </button>
-
             </div>
 
-            {/* ==================================================
-                QUICK SUMMARY
-            ================================================== */}
-
             <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-
               <PatientQuickStat
                 label="Age"
                 value={`${patient.age} years`}
@@ -2061,48 +2647,43 @@ function PatientDetailsModal({
 
               <PatientQuickStat
                 label="Gender"
-                value={patient.gender}
+                value={
+                  patient.gender
+                }
               />
 
               <PatientQuickStat
                 label="Blood Group"
-                value={patient.bloodGroup}
+                value={
+                  patient.bloodGroup
+                }
               />
 
               <PatientQuickStat
                 label="Registered"
-                value={patient.registered}
+                value={
+                  patient.registered
+                }
               />
-
             </div>
-
           </div>
         </div>
 
-        {/* ==================================================
-            SCROLLABLE BODY
-        ================================================== */}
-
         <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-4 sm:p-6 dark:bg-slate-950/40">
-
           <div className="space-y-5">
-
-            {/* ==================================================
-                CONTACT INFORMATION
-            ================================================== */}
 
             <PatientDetailSection
               icon={Users}
               title="Contact Information"
               subtitle="Patient contact and personal details"
             >
-
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-
                 <PatientInfoCard
                   icon={Phone}
                   label="Mobile Number"
-                  value={patient.phone}
+                  value={
+                    patient.phone
+                  }
                 />
 
                 <PatientInfoCard
@@ -2115,7 +2696,9 @@ function PatientDetailsModal({
                 />
 
                 <PatientInfoCard
-                  icon={CalendarDays}
+                  icon={
+                    CalendarDays
+                  }
                   label="Date of Birth"
                   value={
                     patient.dateOfBirth ||
@@ -2132,24 +2715,18 @@ function PatientDetailsModal({
                   }
                   wide
                 />
-
               </div>
-
             </PatientDetailSection>
 
-            {/* ==================================================
-                EMERGENCY CONTACT
-            ================================================== */}
-
             <PatientDetailSection
-              icon={ShieldAlert}
+              icon={
+                ShieldAlert
+              }
               title="Emergency Contact"
               subtitle="Emergency contact information"
               highlighted
             >
-
               <div className="grid gap-3 sm:grid-cols-3">
-
                 <PatientInfoCard
                   icon={Users}
                   label="Contact Name"
@@ -2171,7 +2748,9 @@ function PatientDetailsModal({
                 />
 
                 <PatientInfoCard
-                  icon={HeartPulse}
+                  icon={
+                    HeartPulse
+                  }
                   label="Relationship"
                   value={
                     patient.emergencyContactRelation ||
@@ -2179,25 +2758,22 @@ function PatientDetailsModal({
                   }
                   highlighted
                 />
-
               </div>
-
             </PatientDetailSection>
 
-            {/* ==================================================
-                CLINICAL INFORMATION
-            ================================================== */}
-
             <PatientDetailSection
-              icon={Stethoscope}
+              icon={
+                Stethoscope
+              }
               title="Clinical Information"
               subtitle="Current clinical assessment and care"
             >
-
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
                 <PatientInfoCard
-                  icon={HeartPulse}
+                  icon={
+                    HeartPulse
+                  }
                   label="Department"
                   value={
                     patient.department
@@ -2238,21 +2814,14 @@ function PatientDetailsModal({
                   }
                   wide
                 />
-
               </div>
-
             </PatientDetailSection>
-
-            {/* ==================================================
-                MEDICAL HISTORY
-            ================================================== */}
 
             <PatientDetailSection
               icon={Activity}
               title="Medical History"
               subtitle="Medical background and current medications"
             >
-
               <div className="grid gap-3 lg:grid-cols-3">
 
                 <PatientTextCard
@@ -2278,20 +2847,12 @@ function PatientDetailsModal({
                     "No current medications provided."
                   }
                 />
-
               </div>
-
             </PatientDetailSection>
-
           </div>
         </div>
 
-        {/* ==================================================
-            FOOTER
-        ================================================== */}
-
         <div className="flex shrink-0 flex-col gap-3 border-t border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:border-slate-800 dark:bg-slate-900">
-
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
               Patient Record
@@ -2306,7 +2867,9 @@ function PatientDetailsModal({
 
             <button
               type="button"
-              onClick={onDelete}
+              onClick={
+                onDelete
+              }
               className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 sm:flex-none dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30"
             >
               <Trash2 className="h-4 w-4" />
@@ -2315,7 +2878,9 @@ function PatientDetailsModal({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={
+                onClose
+              }
               className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:flex-none dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Close
@@ -2323,17 +2888,16 @@ function PatientDetailsModal({
 
             <button
               type="button"
-              onClick={onEdit}
+              onClick={
+                onEdit
+              }
               className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-cyan-700 hover:to-blue-700 sm:flex-none"
             >
               <Edit3 className="h-4 w-4" />
               Edit Patient
             </button>
-
           </div>
-
         </div>
-
       </motion.div>
     </motion.div>
   );
@@ -2352,7 +2916,6 @@ function PatientQuickStat({
 }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
-
       <p className="text-[10px] font-medium uppercase tracking-wider text-blue-100">
         {label}
       </p>
@@ -2360,7 +2923,6 @@ function PatientQuickStat({
       <p className="mt-0.5 truncate text-sm font-bold text-white">
         {value}
       </p>
-
     </div>
   );
 }
@@ -2390,7 +2952,6 @@ function PatientDetailSection({
           : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
       }`}
     >
-
       <div className="mb-4 flex items-center gap-3">
 
         <div
@@ -2404,7 +2965,6 @@ function PatientDetailSection({
         </div>
 
         <div className="min-w-0">
-
           <h3 className="text-sm font-bold text-slate-800 dark:text-white">
             {title}
           </h3>
@@ -2412,13 +2972,10 @@ function PatientDetailSection({
           <p className="mt-0.5 text-[11px] text-slate-400">
             {subtitle}
           </p>
-
         </div>
-
       </div>
 
       {children}
-
     </section>
   );
 }
@@ -2452,7 +3009,6 @@ function PatientInfoCard({
           : "border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/40"
       }`}
     >
-
       <div className="mb-2 flex items-center gap-2">
 
         <div
@@ -2468,13 +3024,11 @@ function PatientInfoCard({
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
           {label}
         </p>
-
       </div>
 
       <p className="break-words text-sm font-semibold text-slate-700 dark:text-slate-200">
         {value}
       </p>
-
     </div>
   );
 }
@@ -2500,7 +3054,6 @@ function PatientTextCard({
           : ""
       }`}
     >
-
       <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
         {label}
       </p>
@@ -2508,7 +3061,6 @@ function PatientTextCard({
       <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 dark:text-slate-200">
         {value}
       </p>
-
     </div>
   );
 }
@@ -2519,10 +3071,12 @@ function PatientTextCard({
 
 function EditPatientModal({
   patient,
+  doctors,
   onClose,
   onSave,
 }: {
   patient: Patient;
+  doctors: Doctor[];
   onClose: () => void;
   onSave: (
     patient: Patient
@@ -2533,67 +3087,97 @@ function EditPatientModal({
 
   const [phone, setPhone] =
     useState(
-      getPhoneDigits(patient.phone)
+      getPhoneDigits(
+        patient.phone
+      )
     );
 
   const [department, setDepartment] =
-    useState(patient.department);
+    useState(
+      patient.department
+    );
 
   const [bloodGroup, setBloodGroup] =
-    useState(patient.bloodGroup);
+    useState(
+      patient.bloodGroup
+    );
 
   const [status, setStatus] =
-    useState(patient.status);
+    useState(
+      patient.status
+    );
 
   const [doctor, setDoctor] =
-    useState(patient.doctor || "");
+    useState(
+      patient.doctor || ""
+    );
 
   const [saving, setSaving] =
     useState(false);
 
-  const handleSave = async () => {
-    if (!name.trim()) return;
+  const handleSave =
+    async () => {
+      if (!name.trim())
+        return;
 
-    if (phone.length !== 10) return;
+      if (
+        phone.length !==
+        10
+      )
+        return;
 
-    setSaving(true);
+      setSaving(true);
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, 800)
-    );
+      await new Promise(
+        (resolve) =>
+          setTimeout(
+            resolve,
+            800
+          )
+      );
 
-    onSave({
-      ...patient,
+      onSave({
+        ...patient,
 
-      name: name.trim(),
+        name:
+          name.trim(),
 
-      phone: formatIndianPhone(
-        phone
-      ),
+        phone:
+          formatIndianPhone(
+            phone
+          ),
 
-      department,
+        department,
 
-      bloodGroup,
+        bloodGroup,
 
-      status,
+        status,
 
-      doctor,
+        doctor,
 
-      avatar: name
-        .trim()
-        .split(" ")
-        .filter(Boolean)
-        .map(
-          (part) =>
-            part.charAt(0)
-        )
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-    });
+        avatar:
+          name
+            .trim()
+            .split(" ")
+            .filter(Boolean)
+            .map(
+              (
+                part
+              ) =>
+                part.charAt(
+                  0
+                )
+            )
+            .join("")
+            .slice(
+              0,
+              2
+            )
+            .toUpperCase(),
+      });
 
-    setSaving(false);
-  };
+      setSaving(false);
+    };
 
   return (
     <motion.div
@@ -2608,7 +3192,6 @@ function EditPatientModal({
       }}
       className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
     >
-
       <motion.div
         initial={{
           opacity: 0,
@@ -2624,11 +3207,8 @@ function EditPatientModal({
         }}
         className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900"
       >
-
         <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
-
           <div>
-
             <h2 className="font-bold text-slate-900 dark:text-white">
               Edit Patient
             </h2>
@@ -2636,39 +3216,44 @@ function EditPatientModal({
             <p className="mt-1 text-xs text-slate-500">
               Update patient information
             </p>
-
           </div>
 
           <button
             type="button"
-            onClick={onClose}
-            disabled={saving}
+            onClick={
+              onClose
+            }
+            disabled={
+              saving
+            }
             className="cursor-pointer rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800"
           >
             <X className="h-5 w-5" />
           </button>
-
         </div>
 
         <div className="space-y-4 p-5">
 
           <FormField label="Patient Name">
-
             <input
               value={name}
-              onChange={(event) =>
+              onChange={(
+                event
+              ) =>
                 setName(
-                  event.target.value
+                  event
+                    .target
+                    .value
                 )
               }
-              disabled={saving}
+              disabled={
+                saving
+              }
               className={inputClass()}
             />
-
           </FormField>
 
           <FormField label="Phone Number">
-
             <div className="flex h-10 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
 
               <div className="flex items-center border-r border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
@@ -2677,45 +3262,63 @@ function EditPatientModal({
 
               <input
                 value={phone}
-                onChange={(event) =>
+                onChange={(
+                  event
+                ) =>
                   setPhone(
                     event.target.value
-                      .replace(/\D/g, "")
-                      .slice(0, 10)
+                      .replace(
+                        /\D/g,
+                        ""
+                      )
+                      .slice(
+                        0,
+                        10
+                      )
                   )
                 }
                 inputMode="numeric"
-                maxLength={10}
-                disabled={saving}
+                maxLength={
+                  10
+                }
+                disabled={
+                  saving
+                }
                 className="min-w-0 flex-1 bg-transparent px-3 text-sm outline-none dark:text-white"
               />
-
             </div>
 
-            {phone.length > 0 &&
-              phone.length < 10 && (
+            {phone.length >
+              0 &&
+              phone.length <
+                10 && (
                 <p className="mt-1 text-[11px] text-red-500">
                   Mobile number must be 10 digits.
                 </p>
               )}
-
           </FormField>
 
           <div className="grid gap-4 sm:grid-cols-2">
 
             <FormField label="Blood Group">
-
               <select
-                value={bloodGroup}
-                onChange={(event) =>
+                value={
+                  bloodGroup
+                }
+                onChange={(
+                  event
+                ) =>
                   setBloodGroup(
-                    event.target.value
+                    event
+                      .target
+                      .value
                   )
                 }
-                disabled={saving}
+                disabled={
+                  saving
+                }
                 className={inputClass()}
               >
-
                 {[
                   "A+",
                   "A-",
@@ -2725,32 +3328,44 @@ function EditPatientModal({
                   "AB-",
                   "O+",
                   "O-",
-                ].map((group) => (
-                  <option
-                    key={group}
-                    value={group}
-                  >
-                    {group}
-                  </option>
-                ))}
-
+                ].map(
+                  (
+                    group
+                  ) => (
+                    <option
+                      key={
+                        group
+                      }
+                      value={
+                        group
+                      }
+                    >
+                      {group}
+                    </option>
+                  )
+                )}
               </select>
-
             </FormField>
 
             <FormField label="Department">
-
               <select
-                value={department}
-                onChange={(event) =>
+                value={
+                  department
+                }
+                onChange={(
+                  event
+                ) =>
                   setDepartment(
-                    event.target.value
+                    event
+                      .target
+                      .value
                   )
                 }
-                disabled={saving}
+                disabled={
+                  saving
+                }
                 className={inputClass()}
               >
-
                 {[
                   "General Medicine",
                   "Cardiology",
@@ -2762,36 +3377,44 @@ function EditPatientModal({
                   "ENT",
                   "Ophthalmology",
                 ].map(
-                  (item) => (
+                  (
+                    item
+                  ) => (
                     <option
-                      key={item}
-                      value={item}
+                      key={
+                        item
+                      }
+                      value={
+                        item
+                      }
                     >
                       {item}
                     </option>
                   )
                 )}
-
               </select>
-
             </FormField>
-
           </div>
 
           <FormField label="Status">
-
             <select
-              value={status}
-              onChange={(event) =>
+              value={
+                status
+              }
+              onChange={(
+                event
+              ) =>
                 setStatus(
-                  event.target
+                  event
+                    .target
                     .value as Patient["status"]
                 )
               }
-              disabled={saving}
+              disabled={
+                saving
+              }
               className={inputClass()}
             >
-
               <option value="Active">
                 Active
               </option>
@@ -2803,56 +3426,84 @@ function EditPatientModal({
               <option value="Inactive">
                 Inactive
               </option>
-
             </select>
-
           </FormField>
 
           <FormField label="Assigned Doctor">
-
             <select
-              value={doctor}
-              onChange={(event) =>
+              value={
+                doctor
+              }
+              onChange={(
+                event
+              ) =>
                 setDoctor(
-                  event.target.value
+                  event
+                    .target
+                    .value
                 )
               }
-              disabled={saving}
+              disabled={
+                saving
+              }
               className={inputClass()}
             >
-
               <option value="">
                 Not assigned
               </option>
 
-              <option>
-                Dr. Priya Sharma
-              </option>
-
-              <option>
-                Dr. Rajesh Kumar
-              </option>
-
-              <option>
-                Dr. Anil Reddy
-              </option>
-
-              <option>
-                Dr. Sneha Patel
-              </option>
-
+              {doctors.length >
+              0 ? (
+                doctors.map(
+                  (
+                    item
+                  ) => (
+                    <option
+                      key={String(
+                        item.id
+                      )}
+                      value={
+                        item.name
+                      }
+                    >
+                      {item.name}
+                      {" • "}
+                      {
+                        item.department
+                      }
+                    </option>
+                  )
+                )
+              ) : (
+                <option
+                  value=""
+                  disabled
+                >
+                  No doctors available
+                </option>
+              )}
             </select>
 
+            {doctors.length >
+              0 && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium text-cyan-600 dark:text-cyan-400">
+                <Stethoscope className="h-3 w-3" />
+                {doctors.length} doctors available from Doctors module
+              </p>
+            )}
           </FormField>
-
         </div>
 
         <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
 
           <button
             type="button"
-            onClick={onClose}
-            disabled={saving}
+            onClick={
+              onClose
+            }
+            disabled={
+              saving
+            }
             className="cursor-pointer rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
           >
             Cancel
@@ -2860,10 +3511,13 @@ function EditPatientModal({
 
           <button
             type="button"
-            onClick={handleSave}
+            onClick={
+              handleSave
+            }
             disabled={
               saving ||
-              phone.length !== 10 ||
+              phone.length !==
+                10 ||
               !name.trim()
             }
             className={`flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-sm font-semibold text-white ${
@@ -2872,7 +3526,6 @@ function EditPatientModal({
                 : "cursor-pointer"
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
-
             {saving ? (
               <>
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -2884,11 +3537,8 @@ function EditPatientModal({
                 Save Changes
               </>
             )}
-
           </button>
-
         </div>
-
       </motion.div>
     </motion.div>
   );
@@ -2910,17 +3560,22 @@ function DeletePatientModal({
   const [deleting, setDeleting] =
     useState(false);
 
-  const handleDelete = async () => {
-    setDeleting(true);
+  const handleDelete =
+    async () => {
+      setDeleting(true);
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, 700)
-    );
+      await new Promise(
+        (resolve) =>
+          setTimeout(
+            resolve,
+            700
+          )
+      );
 
-    onConfirm();
+      onConfirm();
 
-    setDeleting(false);
-  };
+      setDeleting(false);
+    };
 
   return (
     <motion.div
@@ -2935,7 +3590,6 @@ function DeletePatientModal({
       }}
       className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
     >
-
       <motion.div
         initial={{
           opacity: 0,
@@ -2951,7 +3605,6 @@ function DeletePatientModal({
         }}
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"
       >
-
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400">
           <Trash2 className="h-5 w-5" />
         </div>
@@ -2972,8 +3625,12 @@ function DeletePatientModal({
 
           <button
             type="button"
-            onClick={onCancel}
-            disabled={deleting}
+            onClick={
+              onCancel
+            }
+            disabled={
+              deleting
+            }
             className="cursor-pointer rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
           >
             Cancel
@@ -2981,15 +3638,18 @@ function DeletePatientModal({
 
           <button
             type="button"
-            onClick={handleDelete}
-            disabled={deleting}
+            onClick={
+              handleDelete
+            }
+            disabled={
+              deleting
+            }
             className={`flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white ${
               deleting
                 ? "cursor-wait opacity-80"
                 : "cursor-pointer hover:bg-red-700"
             }`}
           >
-
             {deleting ? (
               <>
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -3001,11 +3661,8 @@ function DeletePatientModal({
                 Delete Patient
               </>
             )}
-
           </button>
-
         </div>
-
       </motion.div>
     </motion.div>
   );
@@ -3033,27 +3690,27 @@ function PatientTableRow({
     <tr className="group transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
 
       <td className="px-5 py-4">
-
         <div className="flex items-center gap-3">
 
           <PatientAvatar
-            initials={patient.avatar}
+            initials={
+              patient.avatar
+            }
           />
 
           <div className="min-w-0">
-
             <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">
               {patient.name}
             </p>
 
             <p className="text-xs text-slate-400">
-              Registered {patient.registered}
+              Registered{" "}
+              {
+                patient.registered
+              }
             </p>
-
           </div>
-
         </div>
-
       </td>
 
       <td className="px-4 py-4 text-xs font-semibold text-slate-500">
@@ -3061,7 +3718,8 @@ function PatientTableRow({
       </td>
 
       <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300">
-        {patient.age} / {patient.gender}
+        {patient.age} /{" "}
+        {patient.gender}
       </td>
 
       <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300">
@@ -3069,35 +3727,34 @@ function PatientTableRow({
       </td>
 
       <td className="px-4 py-4">
-
         <span className="rounded-lg bg-red-50 px-2.5 py-1 text-xs font-bold text-red-600 dark:bg-red-950/30 dark:text-red-400">
           {patient.bloodGroup}
         </span>
-
       </td>
 
       <td className="px-4 py-4">
-
         <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
           {patient.department}
         </span>
-
       </td>
 
       <td className="px-4 py-4">
         <StatusBadge
-          status={patient.status}
+          status={
+            patient.status
+          }
         />
       </td>
 
       <td className="relative px-4 py-4">
-
         <div className="flex items-center gap-1">
 
           <button
             type="button"
             title="View Patient"
-            onClick={onView}
+            onClick={
+              onView
+            }
             className="cursor-pointer rounded-lg p-2 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-950/40"
           >
             <Eye className="h-4 w-4" />
@@ -3106,7 +3763,9 @@ function PatientTableRow({
           <button
             type="button"
             title="Edit Patient"
-            onClick={onEdit}
+            onClick={
+              onEdit
+            }
             className="cursor-pointer rounded-lg p-2 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/40"
           >
             <Edit3 className="h-4 w-4" />
@@ -3117,14 +3776,14 @@ function PatientTableRow({
             title="More actions"
             onClick={() =>
               setShowActions(
-                (value) => !value
+                (value) =>
+                  !value
               )
             }
             className="cursor-pointer rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>
-
         </div>
 
         <AnimatePresence>
@@ -3147,11 +3806,12 @@ function PatientTableRow({
               }}
               className="absolute right-4 top-12 z-30 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
             >
-
               <button
                 type="button"
                 onClick={() => {
-                  setShowActions(false);
+                  setShowActions(
+                    false
+                  );
                   onView();
                 }}
                 className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -3163,7 +3823,9 @@ function PatientTableRow({
               <button
                 type="button"
                 onClick={() => {
-                  setShowActions(false);
+                  setShowActions(
+                    false
+                  );
                   onEdit();
                 }}
                 className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -3175,7 +3837,9 @@ function PatientTableRow({
               <button
                 type="button"
                 onClick={() => {
-                  setShowActions(false);
+                  setShowActions(
+                    false
+                  );
                   onDelete();
                 }}
                 className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
@@ -3183,13 +3847,10 @@ function PatientTableRow({
                 <Trash2 className="h-3.5 w-3.5" />
                 Delete Patient
               </button>
-
             </motion.div>
           )}
         </AnimatePresence>
-
       </td>
-
     </tr>
   );
 }
@@ -3217,11 +3878,12 @@ function PatientMobileCard({
         <div className="flex min-w-0 items-center gap-3">
 
           <PatientAvatar
-            initials={patient.avatar}
+            initials={
+              patient.avatar
+            }
           />
 
           <div className="min-w-0">
-
             <p className="truncate text-sm font-bold text-slate-800 dark:text-white">
               {patient.name}
             </p>
@@ -3229,15 +3891,14 @@ function PatientMobileCard({
             <p className="text-xs text-slate-400">
               {patient.id}
             </p>
-
           </div>
-
         </div>
 
         <StatusBadge
-          status={patient.status}
+          status={
+            patient.status
+          }
         />
-
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
@@ -3249,26 +3910,33 @@ function PatientMobileCard({
 
         <InfoItem
           label="Blood Group"
-          value={patient.bloodGroup}
+          value={
+            patient.bloodGroup
+          }
         />
 
         <InfoItem
           label="Department"
-          value={patient.department}
+          value={
+            patient.department
+          }
         />
 
         <InfoItem
           label="Phone"
-          value={patient.phone}
+          value={
+            patient.phone
+          }
         />
-
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
 
         <button
           type="button"
-          onClick={onView}
+          onClick={
+            onView
+          }
           className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-cyan-50 py-2.5 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-400"
         >
           <Eye className="h-3.5 w-3.5" />
@@ -3277,7 +3945,9 @@ function PatientMobileCard({
 
         <button
           type="button"
-          onClick={onEdit}
+          onClick={
+            onEdit
+          }
           className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-blue-50 py-2.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
         >
           <Edit3 className="h-3.5 w-3.5" />
@@ -3286,15 +3956,15 @@ function PatientMobileCard({
 
         <button
           type="button"
-          onClick={onDelete}
+          onClick={
+            onDelete
+          }
           className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-red-50 py-2.5 text-xs font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-400"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Delete
         </button>
-
       </div>
-
     </div>
   );
 }
@@ -3316,7 +3986,6 @@ function FormSection({
 }) {
   return (
     <section>
-
       <div className="mb-4 flex items-start gap-3">
 
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-400">
@@ -3324,7 +3993,6 @@ function FormSection({
         </div>
 
         <div>
-
           <h3 className="text-sm font-bold text-slate-800 dark:text-white">
             {title}
           </h3>
@@ -3332,13 +4000,10 @@ function FormSection({
           <p className="mt-0.5 text-xs text-slate-400">
             {description}
           </p>
-
         </div>
-
       </div>
 
       {children}
-
     </section>
   );
 }
@@ -3360,9 +4025,7 @@ function FormField({
 }) {
   return (
     <div>
-
       <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
-
         {label}
 
         {required && (
@@ -3370,7 +4033,6 @@ function FormField({
             *
           </span>
         )}
-
       </label>
 
       {children}
@@ -3380,7 +4042,6 @@ function FormField({
           {error}
         </p>
       )}
-
     </div>
   );
 }
@@ -3438,7 +4099,6 @@ function PatientStat({
       }}
       className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
-
       <div
         className={`absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-10 blur-xl`}
       />
@@ -3457,7 +4117,6 @@ function PatientStat({
             Growth
           </span>
         )}
-
       </div>
 
       <p className="mt-5 text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -3471,7 +4130,6 @@ function PatientStat({
       <p className="mt-1 text-xs text-slate-400">
         {subtitle}
       </p>
-
     </motion.div>
   );
 }
@@ -3542,7 +4200,6 @@ function InfoItem({
       <p className="mt-1 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
         {value}
       </p>
-
     </div>
   );
 }

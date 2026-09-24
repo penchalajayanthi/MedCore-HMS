@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -13,32 +8,26 @@ import {
   AlertCircle,
   ArrowLeft,
   CalendarDays,
-  Check,
   CheckCircle2,
   ChevronDown,
   ClipboardList,
-  Clock3,
-  Edit3,
+  Copy,
   Eye,
-  FileHeart,
   FileText,
   HeartPulse,
   Loader2,
-  Mail,
-  MapPin,
   Pill,
   Plus,
   Search,
   Stethoscope,
   Trash2,
   UserRound,
-  Users,
   X,
 } from "lucide-react";
 
-/* =========================================================
-   TYPES
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/*                                   TYPES                                    */
+/* -------------------------------------------------------------------------- */
 
 type PrescriptionStatus =
   | "ACTIVE"
@@ -58,20 +47,16 @@ type Medicine = {
 
 type Prescription = {
   id: string;
-
   patientId: string;
   patientName: string;
   patientAge: string;
   patientGender: string;
-
   doctorId: string;
   doctorName: string;
   department: string;
-
   prescriptionDate: string;
   diagnosis: string;
   medicines: Medicine[];
-
   notes: string;
   status: PrescriptionStatus;
 };
@@ -85,96 +70,267 @@ type PrescriptionForm = {
   medicines: Medicine[];
 };
 
-type FormErrors = Partial<
-  Record<
-    "patientId" | "doctorId" | "prescriptionDate" | "diagnosis",
-    string
-  >
->;
+type PatientRecord = {
+  id: string;
+  name: string;
+  age: string;
+  gender: string;
+  phone: string;
+  email: string;
+  department: string;
+  bloodGroup: string;
+  allergies: string;
+};
 
-/* =========================================================
-   DEMO DATA
-========================================================= */
+type DoctorRecord = {
+  id: string;
+  name: string;
+  specialization: string;
+  department: string;
+};
 
-const patients = [
+type EMRRecord = {
+  id?: string | number;
+  patientId?: string | number;
+  patientID?: string | number;
+  patient_id?: string | number;
+
+  patientName?: string;
+  fullName?: string;
+  name?: string;
+
+  age?: string | number;
+  gender?: string;
+  bloodGroup?: string;
+  bloodType?: string;
+  department?: string;
+  allergies?: string;
+
+  doctor?: string;
+  doctorName?: string;
+
+  diagnosis?: string;
+  visitDate?: string;
+
+  clinicalNotes?: string;
+  notes?: string;
+
+  medications?: unknown;
+};
+
+/* -------------------------------------------------------------------------- */
+/*                                STORAGE                                     */
+/* -------------------------------------------------------------------------- */
+
+const PRESCRIPTIONS_STORAGE_KEY = "medcore_prescriptions";
+const PATIENTS_STORAGE_KEY = "medcore_patients";
+const DOCTORS_STORAGE_KEY = "medcore_doctors";
+const EMR_STORAGE_KEY = "medcore_emr";
+
+const PRESCRIPTIONS_UPDATED_EVENT =
+  "medcore-prescriptions-updated";
+
+const PATIENTS_UPDATED_EVENT =
+  "medcore-patients-updated";
+
+const DOCTORS_UPDATED_EVENT =
+  "medcore-doctors-updated";
+
+const EMR_UPDATED_EVENT =
+  "medcore-emr-updated";
+
+/* -------------------------------------------------------------------------- */
+/*                               DEMO DATA                                    */
+/* -------------------------------------------------------------------------- */
+
+const fallbackPatients: PatientRecord[] = [
   {
-    id: "PT-1024",
+    id: "PT-1001",
     name: "Ananya Reddy",
     age: "29",
     gender: "Female",
     phone: "+91 98765 43210",
     email: "ananya@example.com",
+    department: "Cardiology",
+    bloodGroup: "O+",
+    allergies: "",
   },
   {
-    id: "PT-1025",
+    id: "PT-1002",
     name: "Rahul Kumar",
     age: "42",
     gender: "Male",
     phone: "+91 98765 12345",
     email: "rahul@example.com",
+    department: "General Medicine",
+    bloodGroup: "",
+    allergies: "",
   },
   {
-    id: "PT-1026",
+    id: "PT-1003",
     name: "Sneha Patel",
     age: "34",
     gender: "Female",
     phone: "+91 99887 66554",
     email: "sneha@example.com",
+    department: "Dermatology",
+    bloodGroup: "",
+    allergies: "",
   },
   {
-    id: "PT-1027",
+    id: "PT-1004",
     name: "Vikram Singh",
     age: "51",
     gender: "Male",
     phone: "+91 91234 56789",
     email: "vikram@example.com",
-  },
-  {
-    id: "PT-1028",
-    name: "Meena Devi",
-    age: "38",
-    gender: "Female",
-    phone: "+91 98765 77889",
-    email: "meena@example.com",
+    department: "Orthopedics",
+    bloodGroup: "",
+    allergies: "",
   },
 ];
 
-const doctors = [
+const fallbackDoctors: DoctorRecord[] = [
   {
     id: "DOC-001",
-    name: "Dr. Priya Sharma",
+    name: "Dr. Ananya Reddy",
+    specialization: "Cardiologist",
     department: "Cardiology",
   },
   {
     id: "DOC-002",
-    name: "Dr. Arjun Rao",
-    department: "General Medicine",
+    name: "Dr. Rahul Sharma",
+    specialization: "Neurologist",
+    department: "Neurology",
   },
   {
     id: "DOC-003",
-    name: "Dr. Meera Nair",
-    department: "Dermatology",
+    name: "Dr. Priya Nair",
+    specialization: "Pediatrician",
+    department: "Pediatrics",
   },
   {
     id: "DOC-004",
-    name: "Dr. Karthik Reddy",
+    name: "Dr. Karthik Rao",
+    specialization: "Orthopedic Surgeon",
     department: "Orthopedics",
   },
   {
     id: "DOC-005",
-    name: "Dr. Ananya Reddy",
-    department: "Neurology",
+    name: "Dr. Sneha Kapoor",
+    specialization: "Dermatologist",
+    department: "Dermatology",
   },
   {
     id: "DOC-006",
-    name: "Dr. Sneha Kapoor",
+    name: "Dr. Arjun Verma",
+    specialization: "General Physician",
+    department: "General Medicine",
+  },
+  {
+    id: "DOC-007",
+    name: "Dr. Meera Iyer",
+    specialization: "Gynecologist",
     department: "Gynecology",
+  },
+  {
+    id: "DOC-008",
+    name: "Dr. Vikram Singh",
+    specialization: "ENT Specialist",
+    department: "ENT",
   },
 ];
 
-/* =========================================================
-   DATE
-========================================================= */
+const initialPrescriptions: Prescription[] = [
+  {
+    id: "RX-1001",
+    patientId: "PT-1001",
+    patientName: "Ananya Reddy",
+    patientAge: "29",
+    patientGender: "Female",
+    doctorId: "DOC-001",
+    doctorName: "Dr. Ananya Reddy",
+    department: "Cardiology",
+    prescriptionDate: "2026-09-20",
+    diagnosis: "Hypertension",
+    medicines: [
+      {
+        id: "MED-1001",
+        name: "Amlodipine",
+        dosage: "5 mg",
+        frequency: "Once daily",
+        duration: "30 days",
+        route: "Oral",
+        instructions: "Take after breakfast",
+      },
+      {
+        id: "MED-1002",
+        name: "Atorvastatin",
+        dosage: "10 mg",
+        frequency: "Once daily",
+        duration: "30 days",
+        route: "Oral",
+        instructions: "Take after dinner",
+      },
+    ],
+    notes: "Monitor blood pressure regularly.",
+    status: "ACTIVE",
+  },
+  {
+    id: "RX-1002",
+    patientId: "PT-1002",
+    patientName: "Rahul Kumar",
+    patientAge: "42",
+    patientGender: "Male",
+    doctorId: "DOC-006",
+    doctorName: "Dr. Arjun Verma",
+    department: "General Medicine",
+    prescriptionDate: "2026-09-19",
+    diagnosis: "Acute fever",
+    medicines: [
+      {
+        id: "MED-1003",
+        name: "Paracetamol",
+        dosage: "500 mg",
+        frequency: "Twice daily",
+        duration: "5 days",
+        route: "Oral",
+        instructions: "Take after food",
+      },
+    ],
+    notes: "Maintain hydration.",
+    status: "ACTIVE",
+  },
+  {
+    id: "RX-1003",
+    patientId: "PT-1003",
+    patientName: "Sneha Patel",
+    patientAge: "34",
+    patientGender: "Female",
+    doctorId: "DOC-005",
+    doctorName: "Dr. Sneha Kapoor",
+    department: "Dermatology",
+    prescriptionDate: "2026-09-15",
+    diagnosis: "Allergic dermatitis",
+    medicines: [
+      {
+        id: "MED-1004",
+        name: "Cetirizine",
+        dosage: "10 mg",
+        frequency: "Once daily",
+        duration: "10 days",
+        route: "Oral",
+        instructions: "Take at night",
+      },
+    ],
+    notes: "Avoid known allergens.",
+    status: "COMPLETED",
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/*                              HELPER FUNCTIONS                              */
+/* -------------------------------------------------------------------------- */
 
 function getTodayDate() {
   const today = new Date();
@@ -186,9 +342,34 @@ function getTodayDate() {
   return `${year}-${month}-${day}`;
 }
 
-/* =========================================================
-   EMPTY MEDICINE
-========================================================= */
+function normalizeId(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeName(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function formatDate(date: string) {
+  if (!date) return "—";
+
+  const parsed = new Date(`${date}T00:00:00`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return parsed.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 function createEmptyMedicine(): Medicine {
   return {
@@ -199,14 +380,10 @@ function createEmptyMedicine(): Medicine {
     dosage: "",
     frequency: "",
     duration: "",
-    route: "",
+    route: "Oral",
     instructions: "",
   };
 }
-
-/* =========================================================
-   EMPTY FORM
-========================================================= */
 
 function createEmptyForm(): PrescriptionForm {
   return {
@@ -218,101 +395,6 @@ function createEmptyForm(): PrescriptionForm {
     medicines: [createEmptyMedicine()],
   };
 }
-
-/* =========================================================
-   DEMO PRESCRIPTIONS
-========================================================= */
-
-const demoPrescriptions: Prescription[] = [
-  {
-    id: "RX-1001",
-    patientId: "PT-1024",
-    patientName: "Ananya Reddy",
-    patientAge: "29",
-    patientGender: "Female",
-    doctorId: "DOC-001",
-    doctorName: "Dr. Priya Sharma",
-    department: "Cardiology",
-    prescriptionDate: getTodayDate(),
-    diagnosis: "Hypertension",
-    medicines: [
-      {
-        id: "MED-1001",
-        name: "Amlodipine",
-        dosage: "5 mg",
-        frequency: "Once daily",
-        duration: "30 days",
-        route: "Oral",
-        instructions: "Take after breakfast.",
-      },
-      {
-        id: "MED-1002",
-        name: "Atorvastatin",
-        dosage: "10 mg",
-        frequency: "Once daily",
-        duration: "30 days",
-        route: "Oral",
-        instructions: "Take after dinner.",
-      },
-    ],
-    notes: "Monitor blood pressure regularly.",
-    status: "ACTIVE",
-  },
-  {
-    id: "RX-1002",
-    patientId: "PT-1025",
-    patientName: "Rahul Kumar",
-    patientAge: "42",
-    patientGender: "Male",
-    doctorId: "DOC-002",
-    doctorName: "Dr. Arjun Rao",
-    department: "General Medicine",
-    prescriptionDate: getTodayDate(),
-    diagnosis: "Acute fever",
-    medicines: [
-      {
-        id: "MED-1003",
-        name: "Paracetamol",
-        dosage: "500 mg",
-        frequency: "Twice daily",
-        duration: "5 days",
-        route: "Oral",
-        instructions: "Take after food.",
-      },
-    ],
-    notes: "Maintain adequate hydration.",
-    status: "ACTIVE",
-  },
-  {
-    id: "RX-1003",
-    patientId: "PT-1026",
-    patientName: "Sneha Patel",
-    patientAge: "34",
-    patientGender: "Female",
-    doctorId: "DOC-003",
-    doctorName: "Dr. Meera Nair",
-    department: "Dermatology",
-    prescriptionDate: getTodayDate(),
-    diagnosis: "Allergic dermatitis",
-    medicines: [
-      {
-        id: "MED-1004",
-        name: "Cetirizine",
-        dosage: "10 mg",
-        frequency: "Once daily",
-        duration: "7 days",
-        route: "Oral",
-        instructions: "Take at night.",
-      },
-    ],
-    notes: "Avoid identified skin irritants.",
-    status: "COMPLETED",
-  },
-];
-
-/* =========================================================
-   STATUS HELPERS
-========================================================= */
 
 function getStatusClasses(status: PrescriptionStatus) {
   switch (status) {
@@ -333,28 +415,316 @@ function getStatusClasses(status: PrescriptionStatus) {
   }
 }
 
-function getStatusIcon(status: PrescriptionStatus) {
-  switch (status) {
-    case "ACTIVE":
-      return <CheckCircle2 className="h-3.5 w-3.5" />;
+/* -------------------------------------------------------------------------- */
+/*                          PATIENT NORMALIZATION                             */
+/* -------------------------------------------------------------------------- */
 
-    case "COMPLETED":
-      return <Check className="h-3.5 w-3.5" />;
+function normalizePatient(raw: any): PatientRecord | null {
+  const id = String(
+    raw?.id ??
+      raw?.patientId ??
+      raw?.patientID ??
+      ""
+  ).trim();
 
-    case "CANCELLED":
-      return <X className="h-3.5 w-3.5" />;
+  if (!id) {
+    return null;
+  }
 
-    case "EXPIRED":
-      return <Clock3 className="h-3.5 w-3.5" />;
+  const name = String(
+    raw?.name ??
+      raw?.fullName ??
+      raw?.patientName ??
+      ""
+  ).trim();
 
-    default:
-      return null;
+  return {
+    id,
+    name,
+    age: String(raw?.age ?? ""),
+    gender: String(raw?.gender ?? ""),
+    phone: String(
+      raw?.phone ??
+        raw?.mobile ??
+        raw?.mobileNumber ??
+        ""
+    ),
+    email: String(raw?.email ?? ""),
+    department: String(raw?.department ?? ""),
+    bloodGroup: String(
+      raw?.bloodGroup ??
+        raw?.bloodType ??
+        ""
+    ),
+    allergies: String(raw?.allergies ?? ""),
+  };
+}
+
+function loadPatients(): PatientRecord[] {
+  try {
+    const stored = localStorage.getItem(
+      PATIENTS_STORAGE_KEY
+    );
+
+    if (!stored) {
+      return fallbackPatients;
+    }
+
+    const parsed = JSON.parse(stored);
+
+    const rawPatients = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.patients)
+        ? parsed.patients
+        : Array.isArray(parsed?.records)
+          ? parsed.records
+          : [];
+
+    const normalized = rawPatients
+      .map(normalizePatient)
+      .filter(Boolean) as PatientRecord[];
+
+    return normalized.length > 0
+      ? normalized
+      : fallbackPatients;
+  } catch (error) {
+    console.error("Failed to load patients:", error);
+
+    return fallbackPatients;
   }
 }
 
-/* =========================================================
-   STATUS BADGE
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/*                           DOCTOR NORMALIZATION                             */
+/* -------------------------------------------------------------------------- */
+
+function convertDoctorId(id: unknown) {
+  const value = String(id ?? "").trim();
+
+  if (!value) {
+    return "";
+  }
+
+  if (/^\d+$/.test(value)) {
+    return `DOC-${value.padStart(3, "0")}`;
+  }
+
+  return value.toUpperCase();
+}
+
+function normalizeDoctor(raw: any): DoctorRecord | null {
+  const id = convertDoctorId(
+    raw?.id ??
+      raw?.doctorId ??
+      raw?.doctorID
+  );
+
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    name: String(
+      raw?.name ??
+        raw?.fullName ??
+        raw?.doctorName ??
+        ""
+    ).trim(),
+    specialization: String(
+      raw?.specialization ??
+        raw?.speciality ??
+        raw?.specialty ??
+        ""
+    ).trim(),
+    department: String(
+      raw?.department ?? ""
+    ).trim(),
+  };
+}
+
+function loadDoctors(): DoctorRecord[] {
+  try {
+    const stored = localStorage.getItem(
+      DOCTORS_STORAGE_KEY
+    );
+
+    if (!stored) {
+      return fallbackDoctors;
+    }
+
+    const parsed = JSON.parse(stored);
+
+    const rawDoctors = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.doctors)
+        ? parsed.doctors
+        : Array.isArray(parsed?.records)
+          ? parsed.records
+          : [];
+
+    const normalized = rawDoctors
+      .map(normalizeDoctor)
+      .filter(Boolean) as DoctorRecord[];
+
+    return normalized.length > 0
+      ? normalized
+      : fallbackDoctors;
+  } catch (error) {
+    console.error("Failed to load doctors:", error);
+
+    return fallbackDoctors;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                             EMR NORMALIZATION                              */
+/* -------------------------------------------------------------------------- */
+
+function getEMRPatientId(record: EMRRecord) {
+  return normalizeId(
+    record.patientId ??
+      record.patientID ??
+      record.patient_id
+  );
+}
+
+function getEMRPatientName(record: EMRRecord) {
+  return normalizeName(
+    record.patientName ??
+      record.fullName ??
+      record.name
+  );
+}
+
+function loadEMRRecords(): EMRRecord[] {
+  try {
+    const stored = localStorage.getItem(
+      EMR_STORAGE_KEY
+    );
+
+    if (!stored) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stored);
+
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+
+    if (Array.isArray(parsed?.records)) {
+      return parsed.records;
+    }
+
+    if (Array.isArray(parsed?.emrRecords)) {
+      return parsed.emrRecords;
+    }
+
+    if (Array.isArray(parsed?.emr)) {
+      return parsed.emr;
+    }
+
+    return [];
+  } catch (error) {
+    console.error("Failed to load EMR:", error);
+
+    return [];
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                         PRESCRIPTION NORMALIZATION                         */
+/* -------------------------------------------------------------------------- */
+
+function loadPrescriptions() {
+  try {
+    const stored = localStorage.getItem(
+      PRESCRIPTIONS_STORAGE_KEY
+    );
+
+    if (!stored) {
+      localStorage.setItem(
+        PRESCRIPTIONS_STORAGE_KEY,
+        JSON.stringify(initialPrescriptions)
+      );
+
+      return initialPrescriptions;
+    }
+
+    const parsed = JSON.parse(stored);
+
+    if (Array.isArray(parsed)) {
+      return parsed as Prescription[];
+    }
+
+    if (Array.isArray(parsed?.prescriptions)) {
+      return parsed.prescriptions as Prescription[];
+    }
+
+    return initialPrescriptions;
+  } catch (error) {
+    console.error(
+      "Failed to load prescriptions:",
+      error
+    );
+
+    return initialPrescriptions;
+  }
+}
+
+function savePrescriptions(
+  records: Prescription[]
+) {
+  localStorage.setItem(
+    PRESCRIPTIONS_STORAGE_KEY,
+    JSON.stringify(records)
+  );
+
+  window.dispatchEvent(
+    new Event(PRESCRIPTIONS_UPDATED_EVENT)
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              UI COMPONENTS                                 */
+/* -------------------------------------------------------------------------- */
+
+function StatCard({
+  label,
+  value,
+  icon,
+  description,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {label}
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {value}
+          </p>
+
+          <p className="mt-1 text-xs text-slate-500">
+            {description}
+          </p>
+        </div>
+
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StatusBadge({
   status,
@@ -363,337 +733,57 @@ function StatusBadge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${getStatusClasses(
+      className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${getStatusClasses(
         status
       )}`}
     >
-      {getStatusIcon(status)}
-
-      {status}
+      {status.replace("_", " ")}
     </span>
   );
 }
 
-/* =========================================================
-   STAT CARD
-========================================================= */
-
-function StatCard({
-  label,
-  value,
-  icon,
-  accent,
-}: {
-  label: string;
-  value: number;
-  icon: ReactNode;
-  accent: string;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border bg-white p-4 shadow-sm ${accent}`}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-          {icon}
-        </div>
-
-        <Pill className="h-4 w-4 text-slate-200" />
-      </div>
-
-      <p className="mt-4 text-2xl font-bold text-slate-900">
-        {value}
-      </p>
-
-      <p className="mt-1 text-xs font-medium text-slate-500">
-        {label}
-      </p>
-    </div>
-  );
-}
-
-/* =========================================================
-   SECTION
-========================================================= */
-
-function FormSection({
-  icon,
-  title,
-  description,
-  children,
-  color = "cyan",
-}: {
-  icon: ReactNode;
-  title: string;
-  description?: string;
-  children: ReactNode;
-  color?: "cyan" | "blue" | "emerald" | "violet" | "amber";
-}) {
-  const colors = {
-    cyan: {
-      border: "border-l-cyan-500",
-      icon: "bg-cyan-50 text-cyan-600",
-      title: "text-cyan-950",
-    },
-    blue: {
-      border: "border-l-blue-500",
-      icon: "bg-blue-50 text-blue-600",
-      title: "text-blue-950",
-    },
-    emerald: {
-      border: "border-l-emerald-500",
-      icon: "bg-emerald-50 text-emerald-600",
-      title: "text-emerald-950",
-    },
-    violet: {
-      border: "border-l-violet-500",
-      icon: "bg-violet-50 text-violet-600",
-      title: "text-violet-950",
-    },
-    amber: {
-      border: "border-l-amber-500",
-      icon: "bg-amber-50 text-amber-600",
-      title: "text-amber-950",
-    },
-  };
-
-  const theme = colors[color];
-
-  return (
-    <section
-      className={`rounded-2xl border border-slate-200 border-l-4 ${theme.border} bg-white p-4 shadow-sm sm:p-5 lg:p-6`}
-    >
-      <div className="mb-5 flex items-start gap-3">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${theme.icon}`}
-        >
-          {icon}
-        </div>
-
-        <div>
-          <h2 className={`font-semibold ${theme.title}`}>
-            {title}
-          </h2>
-
-          {description && (
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              {description}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {children}
-    </section>
-  );
-}
-
-/* =========================================================
-   INPUT
-========================================================= */
-
-function InputField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  required,
-  error,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  type?: string;
-  required?: boolean;
-  error?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700">
-        {label}
-
-        {required && (
-          <span className="ml-1 text-red-500">*</span>
-        )}
-      </label>
-
-      <input
-        type={type}
-        value={value}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
-        placeholder={placeholder}
-        className={`h-11 w-full rounded-xl border bg-slate-50 px-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-2 ${
-          error
-            ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-            : "border-slate-200 focus:border-cyan-400 focus:ring-cyan-100"
-        }`}
-      />
-
-      {error && (
-        <p className="mt-1.5 text-xs text-red-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/* =========================================================
-   SELECT
-========================================================= */
-
-function SelectField({
-  label,
-  value,
-  onChange,
-  options,
-  required,
-  error,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: {
-    value: string;
-    label: string;
-  }[];
-  required?: boolean;
-  error?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700">
-        {label}
-
-        {required && (
-          <span className="ml-1 text-red-500">*</span>
-        )}
-      </label>
-
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(event) =>
-            onChange(event.target.value)
-          }
-          className={`h-11 w-full appearance-none rounded-xl border bg-slate-50 px-4 pr-10 text-sm text-slate-700 outline-none transition focus:bg-white focus:ring-2 ${
-            error
-              ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-              : "border-slate-200 focus:border-cyan-400 focus:ring-cyan-100"
-          }`}
-        >
-          {options.map((option) => (
-            <option
-              key={option.value}
-              value={option.value}
-            >
-              {option.label}
-            </option>
-          ))}
-        </select>
-
-        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-      </div>
-
-      {error && (
-        <p className="mt-1.5 text-xs text-red-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/* =========================================================
-   TEXTAREA
-========================================================= */
-
-function TextAreaField({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700">
-        {label}
-      </label>
-
-      <textarea
-        value={value}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
-        rows={4}
-        placeholder={placeholder}
-        className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:bg-white focus:ring-2 focus:ring-cyan-100"
-      />
-    </div>
-  );
-}
-
-/* =========================================================
-   MAIN PAGE
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/*                              MAIN COMPONENT                                */
+/* -------------------------------------------------------------------------- */
 
 export default function PrescriptionsPage() {
   const [prescriptions, setPrescriptions] =
-    useState<Prescription[]>(() => {
-      if (typeof window === "undefined") {
-        return demoPrescriptions;
-      }
+    useState<Prescription[]>([]);
 
-      try {
-        const stored = localStorage.getItem(
-          "medcore_prescriptions"
-        );
+  const [patients, setPatients] = useState<
+    PatientRecord[]
+  >([]);
 
-        if (!stored) {
-          localStorage.setItem(
-            "medcore_prescriptions",
-            JSON.stringify(demoPrescriptions)
-          );
+  const [doctors, setDoctors] = useState<
+    DoctorRecord[]
+  >([]);
 
-          return demoPrescriptions;
-        }
+  const [emrRecords, setEMRRecords] = useState<
+    EMRRecord[]
+  >([]);
 
-        const parsed = JSON.parse(stored);
-
-        return Array.isArray(parsed)
-          ? parsed
-          : demoPrescriptions;
-      } catch {
-        return demoPrescriptions;
-      }
-    });
-
-  const [search, setSearch] = useState("");
+  const [searchQuery, setSearchQuery] =
+    useState("");
 
   const [statusFilter, setStatusFilter] =
-    useState<"ALL" | PrescriptionStatus>(
-      "ALL"
-    );
+    useState<"ALL" | PrescriptionStatus>("ALL");
 
-  const [editorOpen, setEditorOpen] =
+  const [isEditorOpen, setIsEditorOpen] =
+    useState(false);
+
+  const [isViewOpen, setIsViewOpen] =
+    useState(false);
+
+  const [isDeleteOpen, setIsDeleteOpen] =
     useState(false);
 
   const [editingPrescription, setEditingPrescription] =
     useState<Prescription | null>(null);
 
-  const [viewPrescription, setViewPrescription] =
+  const [selectedPrescription, setSelectedPrescription] =
     useState<Prescription | null>(null);
 
-  const [deletePrescription, setDeletePrescription] =
+  const [deleteTarget, setDeleteTarget] =
     useState<Prescription | null>(null);
 
   const [form, setForm] =
@@ -701,237 +791,306 @@ export default function PrescriptionsPage() {
       createEmptyForm()
     );
 
-  const [errors, setErrors] =
-    useState<FormErrors>({});
-
   const [isSaving, setIsSaving] =
     useState(false);
 
-  const savingRef = useRef(false);
+  /* ------------------------------------------------------------------------ */
+  /*                              DATA LOADING                                */
+  /* ------------------------------------------------------------------------ */
 
-  /* =======================================================
-     FILTER
-  ======================================================= */
+  const refreshAllData = () => {
+    setPrescriptions(loadPrescriptions());
+    setPatients(loadPatients());
+    setDoctors(loadDoctors());
+    setEMRRecords(loadEMRRecords());
+  };
 
-  const filteredPrescriptions =
-    useMemo(() => {
-      const query = search
-        .trim()
-        .toLowerCase();
+  useEffect(() => {
+    refreshAllData();
 
-      return prescriptions.filter(
-        (prescription) => {
-          const matchesSearch =
-            !query ||
-            prescription.id
-              .toLowerCase()
-              .includes(query) ||
-            prescription.patientName
-              .toLowerCase()
-              .includes(query) ||
-            prescription.doctorName
-              .toLowerCase()
-              .includes(query) ||
-            prescription.diagnosis
-              .toLowerCase()
-              .includes(query);
-
-          const matchesStatus =
-            statusFilter === "ALL" ||
-            prescription.status ===
-              statusFilter;
-
-          return (
-            matchesSearch &&
-            matchesStatus
-          );
-        }
-      );
-    }, [
-      prescriptions,
-      search,
-      statusFilter,
-    ]);
-
-  /* =======================================================
-     STATS
-  ======================================================= */
-
-  const stats = useMemo(() => {
-    return {
-      total: prescriptions.length,
-
-      active: prescriptions.filter(
-        (item) =>
-          item.status === "ACTIVE"
-      ).length,
-
-      completed: prescriptions.filter(
-        (item) =>
-          item.status === "COMPLETED"
-      ).length,
-
-      cancelled: prescriptions.filter(
-        (item) =>
-          item.status === "CANCELLED"
-      ).length,
+    const handleDataUpdate = () => {
+      refreshAllData();
     };
-  }, [prescriptions]);
 
-  /* =======================================================
-     SELECTED PATIENT / DOCTOR
-  ======================================================= */
+    window.addEventListener(
+      PRESCRIPTIONS_UPDATED_EVENT,
+      handleDataUpdate
+    );
 
-  const selectedPatient = useMemo(
-    () =>
-      patients.find(
-        (patient) =>
-          patient.id === form.patientId
-      ),
-    [form.patientId]
-  );
+    window.addEventListener(
+      PATIENTS_UPDATED_EVENT,
+      handleDataUpdate
+    );
 
-  const selectedDoctor = useMemo(
-    () =>
-      doctors.find(
-        (doctor) =>
-          doctor.id === form.doctorId
-      ),
-    [form.doctorId]
-  );
+    window.addEventListener(
+      DOCTORS_UPDATED_EVENT,
+      handleDataUpdate
+    );
 
-  /* =======================================================
-     FORM COMPLETE
-  ======================================================= */
+    window.addEventListener(
+      EMR_UPDATED_EVENT,
+      handleDataUpdate
+    );
 
-  const isFormComplete = useMemo(() => {
-    const medicineComplete =
-      form.medicines.length > 0 &&
-      form.medicines.every(
-        (medicine) =>
-          medicine.name.trim() &&
-          medicine.dosage.trim() &&
-          medicine.frequency.trim() &&
-          medicine.duration.trim() &&
-          medicine.route.trim()
+    window.addEventListener(
+      "storage",
+      handleDataUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        PRESCRIPTIONS_UPDATED_EVENT,
+        handleDataUpdate
       );
 
-    return Boolean(
-      form.patientId &&
-        form.doctorId &&
-        form.prescriptionDate &&
-        form.diagnosis.trim() &&
-        medicineComplete
+      window.removeEventListener(
+        PATIENTS_UPDATED_EVENT,
+        handleDataUpdate
+      );
+
+      window.removeEventListener(
+        DOCTORS_UPDATED_EVENT,
+        handleDataUpdate
+      );
+
+      window.removeEventListener(
+        EMR_UPDATED_EVENT,
+        handleDataUpdate
+      );
+
+      window.removeEventListener(
+        "storage",
+        handleDataUpdate
+      );
+    };
+  }, []);
+
+  /* ------------------------------------------------------------------------ */
+  /*                             FILTERING                                    */
+  /* ------------------------------------------------------------------------ */
+
+  const filteredPrescriptions = useMemo(() => {
+    const query = searchQuery
+      .trim()
+      .toLowerCase();
+
+    return prescriptions.filter((item) => {
+      const matchesSearch =
+        !query ||
+        item.id.toLowerCase().includes(query) ||
+        item.patientName
+          .toLowerCase()
+          .includes(query) ||
+        item.doctorName
+          .toLowerCase()
+          .includes(query) ||
+        item.diagnosis
+          .toLowerCase()
+          .includes(query);
+
+      const matchesStatus =
+        statusFilter === "ALL" ||
+        item.status === statusFilter;
+
+      return (
+        matchesSearch &&
+        matchesStatus
+      );
+    });
+  }, [
+    prescriptions,
+    searchQuery,
+    statusFilter,
+  ]);
+
+  const totalCount = prescriptions.length;
+
+  const activeCount = prescriptions.filter(
+    (item) => item.status === "ACTIVE"
+  ).length;
+
+  const completedCount =
+    prescriptions.filter(
+      (item) => item.status === "COMPLETED"
+    ).length;
+
+  const cancelledCount =
+    prescriptions.filter(
+      (item) => item.status === "CANCELLED"
+    ).length;
+
+  /* ------------------------------------------------------------------------ */
+  /*                         SELECTED PATIENT                                 */
+  /* ------------------------------------------------------------------------ */
+
+  const selectedPatient = useMemo(() => {
+    return patients.find(
+      (patient) =>
+        normalizeId(patient.id) ===
+        normalizeId(form.patientId)
     );
-  }, [form]);
+  }, [patients, form.patientId]);
 
-  /* =======================================================
-     UPDATE FORM
-  ======================================================= */
+  /* ------------------------------------------------------------------------ */
+  /*                          SELECTED DOCTOR                                 */
+  /* ------------------------------------------------------------------------ */
 
-  function updateForm(
-    field: keyof PrescriptionForm,
-    value: string | Medicine[]
-  ) {
+  const selectedDoctor = useMemo(() => {
+    return doctors.find(
+      (doctor) =>
+        normalizeId(doctor.id) ===
+        normalizeId(form.doctorId)
+    );
+  }, [doctors, form.doctorId]);
+
+  /* ------------------------------------------------------------------------ */
+  /*                          PATIENT EMR LOOKUP                              */
+  /* ------------------------------------------------------------------------ */
+
+  const selectedPatientEMR = useMemo(() => {
+    if (!selectedPatient) {
+      return [];
+    }
+
+    const patientId =
+      normalizeId(selectedPatient.id);
+
+    const patientName =
+      normalizeName(selectedPatient.name);
+
+    const matched = emrRecords.filter(
+      (record) => {
+        const emrPatientId =
+          getEMRPatientId(record);
+
+        const emrPatientName =
+          getEMRPatientName(record);
+
+        /*
+         * IMPORTANT:
+         * Patient ID is the primary match.
+         * Patient name is used as a fallback.
+         */
+
+        if (
+          patientId &&
+          emrPatientId &&
+          patientId === emrPatientId
+        ) {
+          return true;
+        }
+
+        if (
+          patientName &&
+          emrPatientName &&
+          patientName === emrPatientName
+        ) {
+          return true;
+        }
+
+        return false;
+      }
+    );
+
+    return [...matched].sort((a, b) => {
+      const dateA = a.visitDate
+        ? new Date(
+            `${a.visitDate}T00:00:00`
+          ).getTime()
+        : 0;
+
+      const dateB = b.visitDate
+        ? new Date(
+            `${b.visitDate}T00:00:00`
+          ).getTime()
+        : 0;
+
+      return dateB - dateA;
+    });
+  }, [
+    selectedPatient,
+    emrRecords,
+  ]);
+
+  const latestEMR =
+    selectedPatientEMR[0] ?? null;
+
+  /* ------------------------------------------------------------------------ */
+  /*                         OPEN ADD EDITOR                                  */
+  /* ------------------------------------------------------------------------ */
+
+  const openAddEditor = () => {
+    setEditingPrescription(null);
+    setForm(createEmptyForm());
+    setIsEditorOpen(true);
+  };
+
+  const openEditEditor = (
+    prescription: Prescription
+  ) => {
+    setEditingPrescription(prescription);
+
+    setForm({
+      patientId: prescription.patientId,
+      doctorId: prescription.doctorId,
+      prescriptionDate:
+        prescription.prescriptionDate,
+      diagnosis: prescription.diagnosis,
+      notes: prescription.notes,
+      medicines: prescription.medicines.map(
+        (medicine) => ({
+          ...medicine,
+        })
+      ),
+    });
+
+    setIsEditorOpen(true);
+  };
+
+  const closeEditor = () => {
+    if (isSaving) return;
+
+    setIsEditorOpen(false);
+    setEditingPrescription(null);
+    setForm(createEmptyForm());
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                         FORM FUNCTIONS                                   */
+  /* ------------------------------------------------------------------------ */
+
+  const updateForm = <
+    K extends keyof PrescriptionForm
+  >(
+    field: K,
+    value: PrescriptionForm[K]
+  ) => {
     setForm((previous) => ({
       ...previous,
       [field]: value,
     }));
+  };
 
-    setErrors((previous) => ({
-      ...previous,
-      [field]:
-        undefined,
-    }));
-  }
-
-  /* =======================================================
-     OPEN CREATE
-  ======================================================= */
-
-  function openCreate() {
-    setEditingPrescription(null);
-    setForm(createEmptyForm());
-    setErrors({});
-    setEditorOpen(true);
-  }
-
-  /* =======================================================
-     OPEN EDIT
-  ======================================================= */
-
-  function openEdit(
-    prescription: Prescription
-  ) {
-    setEditingPrescription(
-      prescription
-    );
-
-    setForm({
-      patientId:
-        prescription.patientId,
-      doctorId:
-        prescription.doctorId,
-      prescriptionDate:
-        prescription.prescriptionDate,
-      diagnosis:
-        prescription.diagnosis,
-      notes:
-        prescription.notes,
-      medicines:
-        prescription.medicines.map(
-          (medicine) => ({
-            ...medicine,
-          })
-        ),
-    });
-
-    setErrors({});
-    setViewPrescription(null);
-    setEditorOpen(true);
-  }
-
-  /* =======================================================
-     CLOSE EDITOR
-  ======================================================= */
-
-  function closeEditor() {
-    if (isSaving) return;
-
-    setEditorOpen(false);
-    setEditingPrescription(null);
-    setErrors({});
-  }
-
-  /* =======================================================
-     MEDICINE UPDATE
-  ======================================================= */
-
-  function updateMedicine(
+  const updateMedicine = (
     medicineId: string,
     field: keyof Medicine,
     value: string
-  ) {
+  ) => {
     setForm((previous) => ({
       ...previous,
-      medicines:
-        previous.medicines.map(
-          (medicine) =>
-            medicine.id === medicineId
-              ? {
-                  ...medicine,
-                  [field]: value,
-                }
-              : medicine
-        ),
+      medicines: previous.medicines.map(
+        (medicine) =>
+          medicine.id === medicineId
+            ? {
+                ...medicine,
+                [field]: value,
+              }
+            : medicine
+      ),
     }));
-  }
+  };
 
-  /* =======================================================
-     ADD MEDICINE
-  ======================================================= */
-
-  function addMedicine() {
+  const addMedicine = () => {
     setForm((previous) => ({
       ...previous,
       medicines: [
@@ -939,153 +1098,217 @@ export default function PrescriptionsPage() {
         createEmptyMedicine(),
       ],
     }));
-  }
+  };
 
-  /* =======================================================
-     REMOVE MEDICINE
-  ======================================================= */
-
-  function removeMedicine(
+  const removeMedicine = (
     medicineId: string
-  ) {
-    if (form.medicines.length === 1) {
+  ) => {
+    setForm((previous) => {
+      if (previous.medicines.length === 1) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        medicines:
+          previous.medicines.filter(
+            (medicine) =>
+              medicine.id !== medicineId
+          ),
+      };
+    });
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                        PATIENT SELECTION                                 */
+  /* ------------------------------------------------------------------------ */
+
+  const handlePatientChange = (
+    patientId: string
+  ) => {
+    setForm((previous) => ({
+      ...previous,
+      patientId,
+    }));
+  };
+
+  const copyDiagnosisFromEMR = () => {
+    if (!latestEMR?.diagnosis) {
       toast.error(
-        "At least one medicine is required"
+        "No diagnosis is available in the EMR."
       );
       return;
     }
 
     setForm((previous) => ({
       ...previous,
-      medicines:
-        previous.medicines.filter(
-          (medicine) =>
-            medicine.id !== medicineId
-        ),
+      diagnosis:
+        previous.diagnosis.trim().length > 0
+          ? previous.diagnosis
+          : String(latestEMR.diagnosis),
     }));
-  }
 
-  /* =======================================================
-     VALIDATE
-  ======================================================= */
+    toast.success(
+      "Diagnosis copied from the latest EMR."
+    );
+  };
 
-  function validateForm() {
-    const nextErrors: FormErrors = {};
+  /* ------------------------------------------------------------------------ */
+  /*                              VALIDATION                                  */
+  /* ------------------------------------------------------------------------ */
 
+  const validateForm = () => {
     if (!form.patientId) {
-      nextErrors.patientId =
-        "Please select a patient.";
+      toast.error("Please select a patient.");
+      return false;
     }
 
     if (!form.doctorId) {
-      nextErrors.doctorId =
-        "Please select a doctor.";
+      toast.error("Please select a doctor.");
+      return false;
     }
 
     if (!form.prescriptionDate) {
-      nextErrors.prescriptionDate =
-        "Please select a date.";
+      toast.error(
+        "Please select prescription date."
+      );
+      return false;
     }
 
     if (!form.diagnosis.trim()) {
-      nextErrors.diagnosis =
-        "Diagnosis is required.";
+      toast.error("Please enter diagnosis.");
+      return false;
     }
-
-    return nextErrors;
-  }
-
-  /* =======================================================
-     SAVE
-  ======================================================= */
-
-  function handleSave() {
-    if (savingRef.current) return;
-
-    const validationErrors =
-      validateForm();
 
     if (
-      Object.keys(validationErrors)
-        .length > 0
+      form.medicines.length === 0
     ) {
-      setErrors(validationErrors);
-
       toast.error(
-        "Please complete the required information."
+        "Please add at least one medicine."
       );
+      return false;
+    }
 
+    for (
+      let index = 0;
+      index < form.medicines.length;
+      index++
+    ) {
+      const medicine =
+        form.medicines[index];
+
+      if (!medicine.name.trim()) {
+        toast.error(
+          `Enter medicine name for medicine ${
+            index + 1
+          }.`
+        );
+        return false;
+      }
+
+      if (!medicine.dosage.trim()) {
+        toast.error(
+          `Enter dosage for medicine ${
+            index + 1
+          }.`
+        );
+        return false;
+      }
+
+      if (!medicine.frequency.trim()) {
+        toast.error(
+          `Enter frequency for medicine ${
+            index + 1
+          }.`
+        );
+        return false;
+      }
+
+      if (!medicine.duration.trim()) {
+        toast.error(
+          `Enter duration for medicine ${
+            index + 1
+          }.`
+        );
+        return false;
+      }
+
+      if (!medicine.route.trim()) {
+        toast.error(
+          `Select route for medicine ${
+            index + 1
+          }.`
+        );
+        return false;
+      }
+
+      if (!medicine.instructions.trim()) {
+        toast.error(
+          `Enter instructions for medicine ${
+            index + 1
+          }.`
+        );
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                              SAVE                                        */
+  /* ------------------------------------------------------------------------ */
+
+  const handleSave = async () => {
+    if (!validateForm()) {
       return;
     }
 
-    const incompleteMedicine =
-      form.medicines.some(
-        (medicine) =>
-          !medicine.name.trim() ||
-          !medicine.dosage.trim() ||
-          !medicine.frequency.trim() ||
-          !medicine.duration.trim() ||
-          !medicine.route.trim()
-      );
-
-    if (incompleteMedicine) {
+    if (!selectedPatient) {
       toast.error(
-        "Please complete all required medicine details."
+        "Selected patient could not be found."
       );
-
       return;
     }
 
-    savingRef.current = true;
+    if (!selectedDoctor) {
+      toast.error(
+        "Selected doctor could not be found."
+      );
+      return;
+    }
+
     setIsSaving(true);
 
-    const patient = patients.find(
-      (item) =>
-        item.id === form.patientId
-    );
+    try {
+      const currentRecords =
+        loadPrescriptions();
 
-    const doctor = doctors.find(
-      (item) =>
-        item.id === form.doctorId
-    );
-
-    if (!patient || !doctor) {
-      savingRef.current = false;
-      setIsSaving(false);
-
-      toast.error(
-        "Patient or doctor could not be found."
-      );
-
-      return;
-    }
-
-    const prescription: Prescription =
-      {
+      const prescription: Prescription = {
         id:
-          editingPrescription?.id ||
+          editingPrescription?.id ??
           `RX-${Date.now()}`,
 
         patientId:
-          patient.id,
+          selectedPatient.id,
 
         patientName:
-          patient.name,
+          selectedPatient.name,
 
         patientAge:
-          patient.age,
+          selectedPatient.age,
 
         patientGender:
-          patient.gender,
+          selectedPatient.gender,
 
         doctorId:
-          doctor.id,
+          selectedDoctor.id,
 
         doctorName:
-          doctor.name,
+          selectedDoctor.name,
 
         department:
-          doctor.department,
+          selectedDoctor.department,
 
         prescriptionDate:
           form.prescriptionDate,
@@ -1094,229 +1317,259 @@ export default function PrescriptionsPage() {
           form.diagnosis.trim(),
 
         medicines:
-          form.medicines,
+          form.medicines.map(
+            (medicine) => ({
+              ...medicine,
+              name: medicine.name.trim(),
+              dosage:
+                medicine.dosage.trim(),
+              frequency:
+                medicine.frequency.trim(),
+              duration:
+                medicine.duration.trim(),
+              route:
+                medicine.route.trim(),
+              instructions:
+                medicine.instructions.trim(),
+            })
+          ),
 
         notes:
           form.notes.trim(),
 
         status:
-          editingPrescription?.status ||
+          editingPrescription?.status ??
           "ACTIVE",
       };
 
-    let updated: Prescription[];
+      let updatedRecords: Prescription[];
 
-    if (editingPrescription) {
-      updated =
-        prescriptions.map(
-          (item) =>
-            item.id ===
-            editingPrescription.id
-              ? prescription
-              : item
+      if (editingPrescription) {
+        updatedRecords =
+          currentRecords.map(
+            (item) =>
+              item.id ===
+              editingPrescription.id
+                ? prescription
+                : item
+          );
+
+        toast.success(
+          "Prescription updated successfully."
         );
+      } else {
+        updatedRecords = [
+          prescription,
+          ...currentRecords,
+        ];
 
-      toast.success(
-        "Prescription updated successfully"
-      );
-    } else {
-      updated = [
-        prescription,
-        ...prescriptions,
-      ];
+        toast.success(
+          "Prescription created successfully."
+        );
+      }
 
-      toast.success(
-        "Prescription created successfully"
+      savePrescriptions(
+        updatedRecords
       );
+
+      setPrescriptions(
+        updatedRecords
+      );
+
+      closeEditor();
+    } catch (error) {
+      console.error(
+        "Failed to save prescription:",
+        error
+      );
+
+      toast.error(
+        "Failed to save prescription."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                              DELETE                                      */
+  /* ------------------------------------------------------------------------ */
+
+  const openDeleteModal = (
+    prescription: Prescription
+  ) => {
+    setDeleteTarget(prescription);
+    setIsDeleteOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteTarget(null);
+    setIsDeleteOpen(false);
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) {
+      return;
     }
 
-    setPrescriptions(updated);
-
-    localStorage.setItem(
-      "medcore_prescriptions",
-      JSON.stringify(updated)
-    );
-
-    setEditorOpen(false);
-    setEditingPrescription(null);
-    setForm(createEmptyForm());
-    setErrors({});
-
-    savingRef.current = false;
-    setIsSaving(false);
-  }
-
-  /* =======================================================
-     DELETE
-  ======================================================= */
-
-  function confirmDelete() {
-    if (!deletePrescription) return;
-
-    const updated =
+    const updatedRecords =
       prescriptions.filter(
         (item) =>
-          item.id !==
-          deletePrescription.id
+          item.id !== deleteTarget.id
       );
 
-    setPrescriptions(updated);
+    savePrescriptions(
+      updatedRecords
+    );
 
-    localStorage.setItem(
-      "medcore_prescriptions",
-      JSON.stringify(updated)
+    setPrescriptions(
+      updatedRecords
     );
 
     toast.success(
-      "Prescription deleted successfully"
+      "Prescription deleted successfully."
     );
 
-    setDeletePrescription(null);
-  }
+    closeDeleteModal();
+  };
 
-  /* =======================================================
-     RESET FILTERS
-  ======================================================= */
+  /* ------------------------------------------------------------------------ */
+  /*                               VIEW                                       */
+  /* ------------------------------------------------------------------------ */
 
-  function resetFilters() {
-    setSearch("");
+  const openViewModal = (
+    prescription: Prescription
+  ) => {
+    setSelectedPrescription(
+      prescription
+    );
+
+    setIsViewOpen(true);
+  };
+
+  const closeViewModal = () => {
+    setSelectedPrescription(null);
+    setIsViewOpen(false);
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                               RESET                                      */
+  /* ------------------------------------------------------------------------ */
+
+  const resetFilters = () => {
+    setSearchQuery("");
     setStatusFilter("ALL");
-  }
+  };
 
-  const hasActiveFilters =
-    search.trim() !== "" ||
-    statusFilter !== "ALL";
-
-  /* =======================================================
-     RENDER
-  ======================================================= */
+  /* ------------------------------------------------------------------------ */
+  /*                                  JSX                                     */
+  /* ------------------------------------------------------------------------ */
 
   return (
-    <div className="min-h-screen bg-slate-50/70 p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-
-        {/* =================================================
-            PAGE HEADER
-        ================================================= */}
-
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-5 lg:p-7">
+      <div className="mx-auto max-w-[1600px] space-y-5">
+        {/* HEADER */}
         <motion.div
           initial={{
             opacity: 0,
-            y: -15,
+            y: 12,
           }}
           animate={{
             opacity: 1,
             y: 0,
           }}
-          className="overflow-hidden rounded-3xl border border-cyan-200 bg-gradient-to-r from-cyan-700 via-cyan-600 to-blue-600 shadow-lg shadow-cyan-500/10"
+          className="overflow-hidden rounded-3xl border border-cyan-100 bg-gradient-to-br from-cyan-600 via-sky-600 to-blue-700 p-5 text-white shadow-lg sm:p-7"
         >
-          <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between lg:p-7">
-            <div className="flex items-start gap-4 text-white">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/15 shadow-sm backdrop-blur">
-                <Pill className="h-6 w-6" />
-              </div>
-
-              <div>
-                <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-cyan-100">
-                  <HeartPulse className="h-4 w-4" />
-                  Hospital Management
-                  <span>/</span>
-                  Prescriptions
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-3 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+                  <Pill className="h-6 w-6" />
                 </div>
 
-                <h1 className="text-2xl font-bold sm:text-3xl">
-                  Prescriptions
-                </h1>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                    Clinical Management
+                  </p>
 
-                <p className="mt-1 max-w-2xl text-sm text-cyan-50">
-                  Create, manage and review patient
-                  medication prescriptions.
-                </p>
+                  <h1 className="text-2xl font-bold sm:text-3xl">
+                    Prescriptions
+                  </h1>
+                </div>
               </div>
+
+              <p className="max-w-2xl text-sm leading-6 text-cyan-50">
+                Create and manage patient prescriptions
+                using connected patient, doctor and EMR
+                information.
+              </p>
             </div>
 
             <button
               type="button"
-              onClick={openCreate}
-              className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-white px-5 text-sm font-semibold text-cyan-700 shadow-lg transition hover:bg-cyan-50 active:scale-[0.98]"
+              onClick={openAddEditor}
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-cyan-700 shadow-md transition hover:bg-cyan-50 active:scale-[0.98]"
             >
               <Plus className="h-4 w-4" />
-              New Prescription
+              Add Prescription
             </button>
           </div>
         </motion.div>
 
-        {/* =================================================
-            STATS
-        ================================================= */}
-
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {/* STATS */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Total Prescriptions"
-            value={stats.total}
+            value={totalCount}
             icon={
-              <FileText className="h-5 w-5" />
+              <ClipboardList className="h-5 w-5" />
             }
-            accent="border-l-4 border-l-cyan-500"
+            description="All prescription records"
           />
 
           <StatCard
             label="Active"
-            value={stats.active}
+            value={activeCount}
             icon={
               <Activity className="h-5 w-5" />
             }
-            accent="border-l-4 border-l-emerald-500"
+            description="Currently active"
           />
 
           <StatCard
             label="Completed"
-            value={stats.completed}
+            value={completedCount}
             icon={
               <CheckCircle2 className="h-5 w-5" />
             }
-            accent="border-l-4 border-l-blue-500"
+            description="Completed treatment plans"
           />
 
           <StatCard
             label="Cancelled"
-            value={stats.cancelled}
+            value={cancelledCount}
             icon={
               <AlertCircle className="h-5 w-5" />
             }
-            accent="border-l-4 border-l-red-500"
+            description="Cancelled prescriptions"
           />
         </div>
 
-        {/* =================================================
-            FILTERS
-        ================================================= */}
-
-        <motion.section
-          initial={{
-            opacity: 0,
-            y: 15,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          className="rounded-2xl border border-blue-100 border-l-4 border-l-blue-500 bg-white p-4 shadow-sm sm:p-5"
-        >
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+        {/* FILTERS */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px_auto]">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
               <input
-                type="text"
-                value={search}
+                value={searchQuery}
                 onChange={(event) =>
-                  setSearch(
+                  setSearchQuery(
                     event.target.value
                   )
                 }
                 placeholder="Search prescription, patient, doctor or diagnosis..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-2 focus:ring-cyan-100"
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
               />
             </div>
 
@@ -1325,439 +1578,412 @@ export default function PrescriptionsPage() {
                 value={statusFilter}
                 onChange={(event) =>
                   setStatusFilter(
-                    event.target
-                      .value as
+                    event.target.value as
                       | "ALL"
                       | PrescriptionStatus
                   )
                 }
-                className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm text-slate-700 outline-none focus:border-cyan-400 focus:bg-white"
+                className="h-11 w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm font-medium text-slate-700 outline-none focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
               >
                 <option value="ALL">
                   All Statuses
                 </option>
-
                 <option value="ACTIVE">
                   Active
                 </option>
-
                 <option value="COMPLETED">
                   Completed
                 </option>
-
                 <option value="CANCELLED">
                   Cancelled
                 </option>
-
                 <option value="EXPIRED">
                   Expired
                 </option>
               </select>
 
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
 
             <button
               type="button"
               onClick={resetFilters}
-              disabled={!hasActiveFilters}
-              className={`h-11 rounded-xl border px-4 text-sm font-semibold transition ${
-                hasActiveFilters
-                  ? "cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700"
-                  : "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
-              }`}
+              className="inline-flex h-11 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
             >
               Reset Filters
             </button>
           </div>
-        </motion.section>
+        </div>
 
-        {/* =================================================
-            LIST
-        ================================================= */}
+        {/* TABLE */}
+        <div className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm md:block">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1050px]">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Prescription
+                  </th>
 
-        <motion.section
-          initial={{
-            opacity: 0,
-            y: 15,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          className="overflow-hidden rounded-2xl border border-slate-200 border-l-4 border-l-cyan-500 bg-white shadow-sm"
-        >
-          <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="font-semibold text-slate-900">
-                  Prescription Records
-                </h2>
+                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Patient
+                  </th>
 
-                <p className="mt-1 text-xs text-slate-500">
-                  {filteredPrescriptions.length}{" "}
-                  prescription
-                  {filteredPrescriptions.length !==
-                  1
-                    ? "s"
-                    : ""}{" "}
-                  displayed
-                </p>
-              </div>
+                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Doctor
+                  </th>
 
-              <div className="hidden items-center gap-2 rounded-xl bg-cyan-50 px-3 py-2 sm:flex">
-                <Pill className="h-4 w-4 text-cyan-600" />
+                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Diagnosis
+                  </th>
 
-                <span className="text-xs font-semibold text-cyan-700">
-                  Medication Management
-                </span>
-              </div>
-            </div>
+                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Medicines
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Date
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Status
+                  </th>
+
+                  <th className="px-5 py-4 text-right text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredPrescriptions.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-5 py-16 text-center"
+                    >
+                      <div className="mx-auto flex max-w-md flex-col items-center">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
+                          <Pill className="h-7 w-7" />
+                        </div>
+
+                        <h3 className="mt-4 font-bold text-slate-900">
+                          No prescriptions found
+                        </h3>
+
+                        <p className="mt-1 text-sm text-slate-500">
+                          Try changing your filters or
+                          create a new prescription.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredPrescriptions.map(
+                    (prescription) => (
+                      <tr
+                        key={prescription.id}
+                        className="border-b border-slate-100 transition hover:bg-cyan-50/30"
+                      >
+                        <td className="px-5 py-4">
+                          <p className="font-bold text-slate-900">
+                            {prescription.id}
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            {prescription.medicines.length}{" "}
+                            medicine
+                            {prescription.medicines.length !==
+                            1
+                              ? "s"
+                              : ""}
+                          </p>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-slate-900">
+                            {prescription.patientName}
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            {prescription.patientId}
+                            {" • "}
+                            {prescription.patientAge} yrs
+                          </p>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-slate-900">
+                            {prescription.doctorName}
+                          </p>
+
+                          <p className="mt-1 text-xs text-cyan-600">
+                            {prescription.department}
+                          </p>
+                        </td>
+
+                        <td className="max-w-[220px] px-5 py-4">
+                          <p className="truncate font-medium text-slate-700">
+                            {prescription.diagnosis}
+                          </p>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap gap-1.5">
+                            {prescription.medicines
+                              .slice(0, 2)
+                              .map(
+                                (medicine) => (
+                                  <span
+                                    key={
+                                      medicine.id
+                                    }
+                                    className="rounded-full border border-cyan-100 bg-cyan-50 px-2.5 py-1 text-[11px] font-semibold text-cyan-700"
+                                  >
+                                    {
+                                      medicine.name
+                                    }
+                                  </span>
+                                )
+                              )}
+
+                            {prescription.medicines
+                              .length > 2 && (
+                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                                +
+                                {prescription.medicines.length -
+                                  2}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                          {formatDate(
+                            prescription.prescriptionDate
+                          )}
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <StatusBadge
+                            status={
+                              prescription.status
+                            }
+                          />
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openViewModal(
+                                  prescription
+                                )
+                              }
+                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:bg-cyan-100"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              View
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openEditEditor(
+                                  prescription
+                                )
+                              }
+                              className="inline-flex cursor-pointer items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openDeleteModal(
+                                  prescription
+                                )
+                              }
+                              className="inline-flex cursor-pointer items-center rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  )
+                )}
+              </tbody>
+            </table>
           </div>
+        </div>
 
-          {filteredPrescriptions.length ===
-          0 ? (
-            <div className="flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-50">
-                <Pill className="h-8 w-8 text-cyan-500" />
+        {/* MOBILE / TABLET CARDS */}
+        <div className="grid gap-4 md:hidden">
+          {filteredPrescriptions.length === 0 ? (
+            <div className="rounded-3xl border border-slate-200 bg-white px-5 py-14 text-center shadow-sm">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
+                <Pill className="h-7 w-7" />
               </div>
 
-              <h3 className="mt-4 font-semibold text-slate-800">
+              <h3 className="mt-4 font-bold text-slate-900">
                 No prescriptions found
               </h3>
 
-              <p className="mt-1 max-w-md text-sm text-slate-500">
-                No prescription records match the
-                current filters.
+              <p className="mt-1 text-sm text-slate-500">
+                Try changing your filters.
               </p>
-
-              <button
-                type="button"
-                onClick={openCreate}
-                className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 active:scale-[0.98]"
-              >
-                <Plus className="h-4 w-4" />
-                Create New Prescription
-              </button>
             </div>
           ) : (
-            <>
-              {/* DESKTOP */}
+            filteredPrescriptions.map(
+              (prescription) => (
+                <div
+                  key={prescription.id}
+                  className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">
+                        {prescription.id}
+                      </p>
 
-              <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/70 text-left">
-                      <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Prescription
-                      </th>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatDate(
+                          prescription.prescriptionDate
+                        )}
+                      </p>
+                    </div>
 
-                      <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Patient
-                      </th>
+                    <StatusBadge
+                      status={
+                        prescription.status
+                      }
+                    />
+                  </div>
 
-                      <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Doctor
-                      </th>
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-2xl bg-slate-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <UserRound className="h-4 w-4 text-cyan-600" />
 
-                      <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Patient
+                        </p>
+                      </div>
+
+                      <p className="mt-1 font-bold text-slate-900">
+                        {prescription.patientName}
+                      </p>
+
+                      <p className="text-xs text-slate-500">
+                        {prescription.patientId}
+                        {" • "}
+                        {prescription.patientAge} yrs
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-cyan-50/60 p-3">
+                      <div className="flex items-center gap-2">
+                        <Stethoscope className="h-4 w-4 text-cyan-600" />
+
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Doctor
+                        </p>
+                      </div>
+
+                      <p className="mt-1 font-bold text-slate-900">
+                        {prescription.doctorName}
+                      </p>
+
+                      <p className="text-xs text-cyan-700">
+                        {prescription.department}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Diagnosis
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold text-slate-800">
+                        {prescription.diagnosis}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Medicines
-                      </th>
+                      </p>
 
-                      <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Status
-                      </th>
-
-                      <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {filteredPrescriptions.map(
-                      (prescription) => (
-                        <tr
-                          key={prescription.id}
-                          className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50"
-                        >
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-                                <Pill className="h-5 w-5" />
-                              </div>
-
-                              <div>
-                                <p className="text-sm font-semibold text-slate-800">
-                                  {prescription.id}
-                                </p>
-
-                                <p className="mt-1 flex items-center gap-1 text-xs text-slate-400">
-                                  <CalendarDays className="h-3 w-3" />
-                                  {
-                                    prescription.prescriptionDate
-                                  }
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-2">
-                              <UserRound className="h-4 w-4 text-slate-400" />
-
-                              <div>
-                                <p className="text-sm font-medium text-slate-700">
-                                  {
-                                    prescription.patientName
-                                  }
-                                </p>
-
-                                <p className="text-xs text-slate-400">
-                                  {
-                                    prescription.patientId
-                                  }
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-2">
-                              <Stethoscope className="h-4 w-4 text-slate-400" />
-
-                              <div>
-                                <p className="text-sm font-medium text-slate-700">
-                                  {
-                                    prescription.doctorName
-                                  }
-                                </p>
-
-                                <p className="text-xs text-slate-400">
-                                  {
-                                    prescription.department
-                                  }
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-700">
-                                {
-                                  prescription
-                                    .medicines
-                                    .length
-                                }{" "}
-                                medicine
-                                {prescription
-                                  .medicines
-                                  .length !==
-                                1
-                                  ? "s"
-                                  : ""}
-                              </p>
-
-                              <p className="mt-1 max-w-[220px] truncate text-xs text-slate-400">
-                                {prescription.medicines
-                                  .map(
-                                    (medicine) =>
-                                      medicine.name
-                                  )
-                                  .join(", ")}
-                              </p>
-                            </div>
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <StatusBadge
-                              status={
-                                prescription.status
-                              }
-                            />
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setViewPrescription(
-                                    prescription
-                                  )
-                                }
-                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-600"
-                                title="View"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openEdit(
-                                    prescription
-                                  )
-                                }
-                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
-                                title="Edit"
-                              >
-                                <Edit3 className="h-4 w-4" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeletePrescription(
-                                    prescription
-                                  )
-                                }
-                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* MOBILE / TABLET */}
-
-              <div className="divide-y divide-slate-100 lg:hidden">
-                {filteredPrescriptions.map(
-                  (prescription) => (
-                    <div
-                      key={prescription.id}
-                      className="p-5"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-                            <Pill className="h-5 w-5" />
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-800">
-                              {prescription.id}
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-400">
-                              {
-                                prescription.prescriptionDate
-                              }
-                            </p>
-                          </div>
-                        </div>
-
-                        <StatusBadge
-                          status={
-                            prescription.status
-                          }
-                        />
-                      </div>
-
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <InfoItem
-                          icon={
-                            <UserRound className="h-4 w-4" />
-                          }
-                          label="Patient"
-                          value={`${prescription.patientName} (${prescription.patientId})`}
-                        />
-
-                        <InfoItem
-                          icon={
-                            <Stethoscope className="h-4 w-4" />
-                          }
-                          label="Doctor"
-                          value={`${prescription.doctorName} • ${prescription.department}`}
-                        />
-
-                        <InfoItem
-                          icon={
-                            <FileText className="h-4 w-4" />
-                          }
-                          label="Diagnosis"
-                          value={
-                            prescription.diagnosis
-                          }
-                        />
-
-                        <InfoItem
-                          icon={
-                            <Pill className="h-4 w-4" />
-                          }
-                          label="Medicines"
-                          value={`${prescription.medicines.length} medicine${
-                            prescription.medicines.length !==
-                            1
-                              ? "s"
-                              : ""
-                          }`}
-                        />
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewPrescription(
-                              prescription
-                            )
-                          }
-                          className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700"
-                        >
-                          <Eye className="h-4 w-4" />
-                          View
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openEdit(
-                              prescription
-                            )
-                          }
-                          className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                          Edit
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDeletePrescription(
-                              prescription
-                            )
-                          }
-                          className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-xs font-semibold text-red-700 transition hover:bg-red-100"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </button>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {prescription.medicines.map(
+                          (medicine) => (
+                            <span
+                              key={medicine.id}
+                              className="rounded-full border border-cyan-100 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700"
+                            >
+                              {medicine.name}
+                            </span>
+                          )
+                        )}
                       </div>
                     </div>
-                  )
-                )}
-              </div>
-            </>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openViewModal(
+                          prescription
+                        )
+                      }
+                      className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-xl border border-cyan-200 bg-cyan-50 px-2 py-2.5 text-xs font-bold text-cyan-700"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      View
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openEditEditor(
+                          prescription
+                        )
+                      }
+                      className="cursor-pointer rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-xs font-bold text-slate-700"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openDeleteModal(
+                          prescription
+                        )
+                      }
+                      className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-red-200 bg-red-50 px-2 py-2.5 text-xs font-bold text-red-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )
+            )
           )}
-        </motion.section>
+        </div>
       </div>
 
-      {/* ===================================================
-          CREATE / EDIT EDITOR
-      =================================================== */}
+      {/* ================================================================== */}
+      {/*                         EDITOR MODAL                               */}
+      {/* ================================================================== */}
 
       <AnimatePresence>
-        {editorOpen && (
+        {isEditorOpen && (
           <motion.div
             initial={{
               opacity: 0,
@@ -1768,364 +1994,508 @@ export default function PrescriptionsPage() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-50 flex flex-col bg-slate-50"
+            className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm"
           >
-            {/* HEADER */}
-
-            <div className="shrink-0 border-b border-cyan-700/30 bg-gradient-to-r from-cyan-700 via-cyan-600 to-blue-600 text-white shadow-md">
-              <div className="flex min-h-[76px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-                <button
-                  type="button"
-                  onClick={closeEditor}
-                  disabled={isSaving}
-                  className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+            <div className="absolute inset-0 overflow-y-auto">
+              <div className="min-h-full p-3 sm:p-5 lg:p-8">
+                <motion.div
+                  initial={{
+                    opacity: 0,
+                    y: 20,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    y: 20,
+                  }}
+                  className="mx-auto max-w-6xl overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-2xl"
                 >
-                  <ArrowLeft className="h-5 w-5" />
-                </button>
+                  {/* EDITOR HEADER */}
+                  <div className="sticky top-0 z-20 border-b border-cyan-100 bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={closeEditor}
+                          className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
+                        >
+                          <ArrowLeft className="h-5 w-5" />
+                        </button>
 
-                <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15 sm:flex">
-                  <FileHeart className="h-6 w-6" />
-                </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-600">
+                            Prescription Management
+                          </p>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-lg font-bold sm:text-xl">
-                      {editingPrescription
-                        ? "Edit Prescription"
-                        : "Create New Prescription"}
-                    </h1>
+                          <h2 className="text-lg font-bold text-slate-900 sm:text-xl">
+                            {editingPrescription
+                              ? "Edit Prescription"
+                              : "Create Prescription"}
+                          </h2>
+                        </div>
+                      </div>
 
-                    <span className="rounded-full border border-white/20 bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide">
-                      {editingPrescription
-                        ? "Edit Mode"
-                        : "New Prescription"}
-                    </span>
+                      <button
+                        type="button"
+                        onClick={closeEditor}
+                        className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
 
-                  <p className="mt-0.5 text-xs text-cyan-50">
-                    Complete the prescription information
-                    and medication details.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* BODY */}
-
-            <div className="min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 to-white">
-              <div className="mx-auto w-full max-w-[1500px] p-3 sm:p-5 md:p-6 lg:p-8">
-                <div className="grid gap-5 lg:grid-cols-[270px_minmax(0,1fr)] lg:gap-6">
-
-                  {/* LEFT PREVIEW */}
-
-                  <aside className="h-fit lg:sticky lg:top-6">
-                    <div className="rounded-2xl border border-cyan-200 border-t-4 border-t-cyan-500 bg-white p-4 shadow-sm sm:p-5">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-                          <Pill className="h-5 w-5" />
+                  <div className="space-y-5 p-4 sm:p-6">
+                    {/* PATIENT / DOCTOR */}
+                    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                      <div className="mb-5 flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+                          <UserRound className="h-5 w-5" />
                         </div>
 
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                            Prescription
-                          </p>
+                          <h3 className="font-bold text-slate-900">
+                            Patient & Doctor
+                          </h3>
 
-                          <p className="text-sm font-bold text-slate-800">
-                            Live Preview
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-5 flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-lg font-bold text-white">
-                          {selectedPatient?.name
-                            ?.charAt(0)
-                            .toUpperCase() || "P"}
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-800">
-                            {selectedPatient?.name ||
-                              "Patient Name"}
-                          </p>
-
-                          <p className="mt-0.5 text-xs text-slate-400">
-                            {selectedPatient
-                              ? `${selectedPatient.id} • ${selectedPatient.age} yrs`
-                              : "Patient ID"}
+                          <p className="text-xs text-slate-500">
+                            Select connected records from the HMS.
                           </p>
                         </div>
                       </div>
 
-                      <div className="mt-5 space-y-3">
-                        <PreviewItem
-                          icon={
-                            <Stethoscope className="h-4 w-4" />
-                          }
-                          label="Doctor"
-                          value={
-                            selectedDoctor?.name ||
-                            "Not selected"
-                          }
-                        />
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        {/* PATIENT */}
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-slate-700">
+                            Patient
+                          </label>
 
-                        <PreviewItem
-                          icon={
-                            <MapPin className="h-4 w-4" />
-                          }
-                          label="Department"
-                          value={
-                            selectedDoctor?.department ||
-                            "Not selected"
-                          }
-                        />
+                          <div className="relative">
+                            <select
+                              value={form.patientId}
+                              onChange={(event) =>
+                                handlePatientChange(
+                                  event.target.value
+                                )
+                              }
+                              className="h-12 w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm font-medium text-slate-800 outline-none focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
+                            >
+                              <option value="">
+                                Select patient
+                              </option>
 
-                        <PreviewItem
-                          icon={
-                            <CalendarDays className="h-4 w-4" />
-                          }
-                          label="Date"
-                          value={
-                            form.prescriptionDate ||
-                            "Not selected"
-                          }
-                        />
+                              {patients.map(
+                                (patient) => (
+                                  <option
+                                    key={
+                                      patient.id
+                                    }
+                                    value={
+                                      patient.id
+                                    }
+                                  >
+                                    {patient.name} —{" "}
+                                    {patient.id}
+                                  </option>
+                                )
+                              )}
+                            </select>
 
-                        <PreviewItem
-                          icon={
-                            <Pill className="h-4 w-4" />
-                          }
-                          label="Medicines"
-                          value={`${form.medicines.length} medicine${
-                            form.medicines.length !==
-                            1
-                              ? "s"
-                              : ""
-                          }`}
-                        />
-                      </div>
-
-                      <div className="mt-5 rounded-xl bg-cyan-50 p-3">
-                        <div className="flex items-center gap-2 text-cyan-700">
-                          <ShieldIcon />
-                          <span className="text-xs font-semibold">
-                            Prescription Safety
-                          </span>
-                        </div>
-
-                        <p className="mt-1.5 text-[11px] leading-5 text-cyan-700/80">
-                          Required patient, doctor and
-                          medicine information must be
-                          completed before creation.
-                        </p>
-                      </div>
-                    </div>
-                  </aside>
-
-                  {/* RIGHT FORM */}
-
-                  <div className="space-y-5">
-
-                    {/* PATIENT & DOCTOR */}
-
-                    <FormSection
-                      icon={
-                        <Users className="h-5 w-5" />
-                      }
-                      title="Patient & Doctor"
-                      description="Select the patient and doctor responsible for this prescription."
-                      color="cyan"
-                    >
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <SelectField
-                          label="Patient"
-                          value={form.patientId}
-                          onChange={(value) =>
-                            updateForm(
-                              "patientId",
-                              value
-                            )
-                          }
-                          required
-                          error={
-                            errors.patientId
-                          }
-                          options={[
-                            {
-                              value: "",
-                              label:
-                                "Select Patient",
-                            },
-                            ...patients.map(
-                              (patient) => ({
-                                value:
-                                  patient.id,
-                                label: `${patient.name} — ${patient.id}`,
-                              })
-                            ),
-                          ]}
-                        />
-
-                        <SelectField
-                          label="Doctor"
-                          value={form.doctorId}
-                          onChange={(value) =>
-                            updateForm(
-                              "doctorId",
-                              value
-                            )
-                          }
-                          required
-                          error={
-                            errors.doctorId
-                          }
-                          options={[
-                            {
-                              value: "",
-                              label:
-                                "Select Doctor",
-                            },
-                            ...doctors.map(
-                              (doctor) => ({
-                                value:
-                                  doctor.id,
-                                label: `${doctor.name} — ${doctor.department}`,
-                              })
-                            ),
-                          ]}
-                        />
-                      </div>
-
-                      {selectedPatient && (
-                        <div className="mt-4 rounded-xl border border-cyan-100 bg-cyan-50/60 p-3">
-                          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-cyan-800">
-                            <span className="font-semibold">
-                              {selectedPatient.name}
-                            </span>
-
-                            <span>
-                              {selectedPatient.id}
-                            </span>
-
-                            <span>
-                              {selectedPatient.age} years
-                            </span>
-
-                            <span>
-                              {selectedPatient.gender}
-                            </span>
-
-                            <span>
-                              {selectedPatient.phone}
-                            </span>
+                            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                           </div>
+
+                          {selectedPatient && (
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div className="rounded-xl bg-slate-50 p-3">
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                  Age
+                                </p>
+                                <p className="mt-1 text-sm font-bold text-slate-800">
+                                  {selectedPatient.age ||
+                                    "—"}
+                                </p>
+                              </div>
+
+                              <div className="rounded-xl bg-slate-50 p-3">
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                  Gender
+                                </p>
+                                <p className="mt-1 text-sm font-bold text-slate-800">
+                                  {selectedPatient.gender ||
+                                    "—"}
+                                </p>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </FormSection>
+
+                        {/* DOCTOR */}
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-slate-700">
+                            Doctor
+                          </label>
+
+                          <div className="relative">
+                            <select
+                              value={form.doctorId}
+                              onChange={(event) =>
+                                updateForm(
+                                  "doctorId",
+                                  event.target.value
+                                )
+                              }
+                              className="h-12 w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm font-medium text-slate-800 outline-none focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
+                            >
+                              <option value="">
+                                Select doctor
+                              </option>
+
+                              {doctors.map(
+                                (doctor) => (
+                                  <option
+                                    key={
+                                      doctor.id
+                                    }
+                                    value={
+                                      doctor.id
+                                    }
+                                  >
+                                    {doctor.name} —{" "}
+                                    {
+                                      doctor.department
+                                    }
+                                  </option>
+                                )
+                              )}
+                            </select>
+
+                            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          </div>
+
+                          {selectedDoctor && (
+                            <div className="mt-3 rounded-xl border border-cyan-100 bg-cyan-50 p-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-cyan-600">
+                                Department
+                              </p>
+
+                              <p className="mt-1 text-sm font-bold text-slate-900">
+                                {
+                                  selectedDoctor.department
+                                }
+                              </p>
+
+                              {selectedDoctor.specialization && (
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {
+                                    selectedDoctor.specialization
+                                  }
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* EMR CLINICAL CONTEXT */}
+                    {selectedPatient && (
+                      <section className="rounded-3xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-sky-50 p-4 shadow-sm sm:p-5">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-cyan-600 shadow-sm">
+                              <FileText className="h-5 w-5" />
+                            </div>
+
+                            <div>
+                              <h3 className="font-bold text-slate-900">
+                                Clinical Information from EMR
+                              </h3>
+
+                              <p className="mt-1 text-xs text-slate-500">
+                                Connected EMR records for{" "}
+                                <span className="font-semibold text-cyan-700">
+                                  {
+                                    selectedPatient.name
+                                  }
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {latestEMR?.diagnosis && (
+                            <button
+                              type="button"
+                              onClick={
+                                copyDiagnosisFromEMR
+                              }
+                              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-cyan-200 bg-white px-3 py-2 text-xs font-bold text-cyan-700 transition hover:bg-cyan-100"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              Copy Diagnosis
+                            </button>
+                          )}
+                        </div>
+
+                        {selectedPatientEMR.length ===
+                        0 ? (
+                          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                            <div className="flex gap-3">
+                              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+
+                              <div>
+                                <p className="font-bold text-amber-900">
+                                  This patient has no EMR
+                                  records
+                                </p>
+
+                                <p className="mt-1 text-sm leading-6 text-amber-700">
+                                  No EMR record could be matched
+                                  using this patient's ID or
+                                  name. Create an EMR record
+                                  for this patient first.
+                                </p>
+
+                                <p className="mt-2 text-xs text-amber-600">
+                                  Patient ID:{" "}
+                                  <span className="font-bold">
+                                    {
+                                      selectedPatient.id
+                                    }
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-4 space-y-3">
+                            <div className="rounded-2xl border border-white bg-white p-4 shadow-sm">
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-bold uppercase tracking-wide text-cyan-600">
+                                    Latest EMR
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-900">
+                                    {latestEMR?.visitDate
+                                      ? formatDate(
+                                          String(
+                                            latestEMR.visitDate
+                                          )
+                                        )
+                                      : "Visit date not available"}
+                                  </p>
+                                </div>
+
+                                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                                  RECORD FOUND
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                <div className="rounded-xl bg-slate-50 p-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                    Diagnosis
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-800">
+                                    {String(
+                                      latestEMR?.diagnosis ??
+                                        "Not available"
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl bg-slate-50 p-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                    Department
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-800">
+                                    {String(
+                                      latestEMR?.department ??
+                                        "Not available"
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl bg-slate-50 p-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                    Blood Group
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-800">
+                                    {String(
+                                      latestEMR?.bloodGroup ??
+                                        latestEMR?.bloodType ??
+                                        "Not available"
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl bg-slate-50 p-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                    Allergies
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-800">
+                                    {String(
+                                      latestEMR?.allergies ??
+                                        "Not available"
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {(latestEMR?.clinicalNotes ||
+                                latestEMR?.notes) && (
+                                <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                    Clinical Notes
+                                  </p>
+
+                                  <p className="mt-1 text-sm leading-6 text-slate-700">
+                                    {String(
+                                      latestEMR?.clinicalNotes ??
+                                        latestEMR?.notes ??
+                                        ""
+                                    )}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+
+                            {selectedPatientEMR.length >
+                              1 && (
+                              <p className="text-xs text-slate-500">
+                                {
+                                  selectedPatientEMR.length
+                                }{" "}
+                                EMR records found for this
+                                patient. The latest record is
+                                shown above.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </section>
+                    )}
 
                     {/* PRESCRIPTION DETAILS */}
+                    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                      <div className="mb-5 flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                          <CalendarDays className="h-5 w-5" />
+                        </div>
 
-                    <FormSection
-                      icon={
-                        <CalendarDays className="h-5 w-5" />
-                      }
-                      title="Prescription Details"
-                      description="Add the clinical reason and prescription date."
-                      color="blue"
-                    >
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <InputField
-                          label="Prescription Date"
-                          type="date"
-                          value={
-                            form.prescriptionDate
-                          }
-                          onChange={(value) =>
-                            updateForm(
-                              "prescriptionDate",
-                              value
-                            )
-                          }
-                          required
-                          error={
-                            errors.prescriptionDate
-                          }
-                        />
+                        <div>
+                          <h3 className="font-bold text-slate-900">
+                            Prescription Details
+                          </h3>
 
-                        <InputField
-                          label="Diagnosis"
-                          value={
-                            form.diagnosis
-                          }
-                          onChange={(value) =>
-                            updateForm(
-                              "diagnosis",
-                              value
-                            )
-                          }
-                          placeholder="e.g. Hypertension"
-                          required
-                          error={
-                            errors.diagnosis
-                          }
-                        />
+                          <p className="text-xs text-slate-500">
+                            Record diagnosis and prescription date.
+                          </p>
+                        </div>
                       </div>
-                    </FormSection>
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-slate-700">
+                            Prescription Date
+                          </label>
+
+                          <input
+                            type="date"
+                            value={
+                              form.prescriptionDate
+                            }
+                            onChange={(event) =>
+                              updateForm(
+                                "prescriptionDate",
+                                event.target.value
+                              )
+                            }
+                            className="h-12 w-full cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-slate-700">
+                            Diagnosis
+                          </label>
+
+                          <input
+                            value={form.diagnosis}
+                            onChange={(event) =>
+                              updateForm(
+                                "diagnosis",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Enter diagnosis"
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
+                          />
+                        </div>
+                      </div>
+                    </section>
 
                     {/* MEDICINES */}
+                    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                            <Pill className="h-5 w-5" />
+                          </div>
 
-                    <FormSection
-                      icon={
-                        <Pill className="h-5 w-5" />
-                      }
-                      title="Medication Plan"
-                      description="Add the medicines, dosage, frequency, duration and instructions."
-                      color="emerald"
-                    >
+                          <div>
+                            <h3 className="font-bold text-slate-900">
+                              Medicine Plan
+                            </h3>
+
+                            <p className="text-xs text-slate-500">
+                              Add one or more medicines.
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={addMedicine}
+                          className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-xs font-bold text-cyan-700 transition hover:bg-cyan-100"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add Medicine
+                        </button>
+                      </div>
+
                       <div className="space-y-4">
                         {form.medicines.map(
                           (
                             medicine,
                             index
                           ) => (
-                            <motion.div
-                              key={
-                                medicine.id
-                              }
-                              initial={{
-                                opacity: 0,
-                                y: 8,
-                              }}
-                              animate={{
-                                opacity: 1,
-                                y: 0,
-                              }}
-                              className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-4 sm:p-5"
+                            <div
+                              key={medicine.id}
+                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
                             >
                               <div className="mb-4 flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2">
-                                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-xs font-bold text-emerald-700">
-                                    {index +
-                                      1}
-                                  </div>
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-100 text-xs font-bold text-cyan-700">
+                                    {index + 1}
+                                  </span>
 
-                                  <div>
-                                    <p className="text-sm font-semibold text-slate-800">
-                                      Medicine{" "}
-                                      {index +
-                                        1}
-                                    </p>
-
-                                    <p className="text-[10px] text-slate-400">
-                                      Medication
-                                      details
-                                    </p>
-                                  </div>
+                                  <p className="text-sm font-bold text-slate-800">
+                                    Medicine{" "}
+                                    {index + 1}
+                                  </p>
                                 </div>
 
                                 {form.medicines
-                                  .length >
-                                  1 && (
+                                  .length > 1 && (
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -2133,7 +2503,7 @@ export default function PrescriptionsPage() {
                                         medicine.id
                                       )
                                     }
-                                    className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                     Remove
@@ -2141,551 +2511,503 @@ export default function PrescriptionsPage() {
                                 )}
                               </div>
 
-                              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                <InputField
-                                  label="Medicine Name"
-                                  value={
-                                    medicine.name
-                                  }
-                                  onChange={(
-                                    value
-                                  ) =>
-                                    updateMedicine(
-                                      medicine.id,
-                                      "name",
-                                      value
-                                    )
-                                  }
-                                  placeholder="e.g. Amlodipine"
-                                  required
-                                />
+                              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                <div className="lg:col-span-2">
+                                  <label className="mb-2 block text-xs font-bold text-slate-600">
+                                    Medicine Name
+                                  </label>
 
-                                <InputField
-                                  label="Dosage"
-                                  value={
-                                    medicine.dosage
-                                  }
-                                  onChange={(
-                                    value
-                                  ) =>
-                                    updateMedicine(
-                                      medicine.id,
-                                      "dosage",
-                                      value
-                                    )
-                                  }
-                                  placeholder="e.g. 5 mg"
-                                  required
-                                />
+                                  <input
+                                    value={
+                                      medicine.name
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateMedicine(
+                                        medicine.id,
+                                        "name",
+                                        event.target
+                                          .value
+                                      )
+                                    }
+                                    placeholder="e.g. Paracetamol"
+                                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                                  />
+                                </div>
 
-                                <SelectField
-                                  label="Frequency"
-                                  value={
-                                    medicine.frequency
-                                  }
-                                  onChange={(
-                                    value
-                                  ) =>
-                                    updateMedicine(
-                                      medicine.id,
-                                      "frequency",
-                                      value
-                                    )
-                                  }
-                                  required
-                                  options={[
-                                    {
-                                      value:
-                                        "",
-                                      label:
-                                        "Select Frequency",
-                                    },
-                                    {
-                                      value:
-                                        "Once daily",
-                                      label:
-                                        "Once daily",
-                                    },
-                                    {
-                                      value:
-                                        "Twice daily",
-                                      label:
-                                        "Twice daily",
-                                    },
-                                    {
-                                      value:
-                                        "Three times daily",
-                                      label:
-                                        "Three times daily",
-                                    },
-                                    {
-                                      value:
-                                        "Every 6 hours",
-                                      label:
-                                        "Every 6 hours",
-                                    },
-                                    {
-                                      value:
-                                        "Every 8 hours",
-                                      label:
-                                        "Every 8 hours",
-                                    },
-                                    {
-                                      value:
-                                        "As needed",
-                                      label:
-                                        "As needed",
-                                    },
-                                  ]}
-                                />
+                                <div>
+                                  <label className="mb-2 block text-xs font-bold text-slate-600">
+                                    Dosage
+                                  </label>
 
-                                <InputField
-                                  label="Duration"
-                                  value={
-                                    medicine.duration
-                                  }
-                                  onChange={(
-                                    value
-                                  ) =>
-                                    updateMedicine(
-                                      medicine.id,
-                                      "duration",
-                                      value
-                                    )
-                                  }
-                                  placeholder="e.g. 7 days"
-                                  required
-                                />
+                                  <input
+                                    value={
+                                      medicine.dosage
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateMedicine(
+                                        medicine.id,
+                                        "dosage",
+                                        event.target
+                                          .value
+                                      )
+                                    }
+                                    placeholder="e.g. 500 mg"
+                                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                                  />
+                                </div>
 
-                                <SelectField
-                                  label="Route"
-                                  value={
-                                    medicine.route
-                                  }
-                                  onChange={(
-                                    value
-                                  ) =>
-                                    updateMedicine(
-                                      medicine.id,
-                                      "route",
-                                      value
-                                    )
-                                  }
-                                  required
-                                  options={[
-                                    {
-                                      value:
-                                        "",
-                                      label:
-                                        "Select Route",
-                                    },
-                                    {
-                                      value:
-                                        "Oral",
-                                      label:
-                                        "Oral",
-                                    },
-                                    {
-                                      value:
-                                        "Topical",
-                                      label:
-                                        "Topical",
-                                    },
-                                    {
-                                      value:
-                                        "Injection",
-                                      label:
-                                        "Injection",
-                                    },
-                                    {
-                                      value:
-                                        "Inhalation",
-                                      label:
-                                        "Inhalation",
-                                    },
-                                    {
-                                      value:
-                                        "Ophthalmic",
-                                      label:
-                                        "Ophthalmic",
-                                    },
-                                    {
-                                      value:
-                                        "Other",
-                                      label:
-                                        "Other",
-                                    },
-                                  ]}
-                                />
+                                <div>
+                                  <label className="mb-2 block text-xs font-bold text-slate-600">
+                                    Frequency
+                                  </label>
 
-                                <InputField
-                                  label="Instructions"
-                                  value={
-                                    medicine.instructions
-                                  }
-                                  onChange={(
-                                    value
-                                  ) =>
-                                    updateMedicine(
-                                      medicine.id,
-                                      "instructions",
-                                      value
-                                    )
-                                  }
-                                  placeholder="e.g. Take after food"
-                                />
+                                  <input
+                                    value={
+                                      medicine.frequency
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateMedicine(
+                                        medicine.id,
+                                        "frequency",
+                                        event.target
+                                          .value
+                                      )
+                                    }
+                                    placeholder="e.g. Twice daily"
+                                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="mb-2 block text-xs font-bold text-slate-600">
+                                    Duration
+                                  </label>
+
+                                  <input
+                                    value={
+                                      medicine.duration
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateMedicine(
+                                        medicine.id,
+                                        "duration",
+                                        event.target
+                                          .value
+                                      )
+                                    }
+                                    placeholder="e.g. 5 days"
+                                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="mb-2 block text-xs font-bold text-slate-600">
+                                    Route
+                                  </label>
+
+                                  <div className="relative">
+                                    <select
+                                      value={
+                                        medicine.route
+                                      }
+                                      onChange={(
+                                        event
+                                      ) =>
+                                        updateMedicine(
+                                          medicine.id,
+                                          "route",
+                                          event.target
+                                            .value
+                                        )
+                                      }
+                                      className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-9 text-sm outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                                    >
+                                      <option value="Oral">
+                                        Oral
+                                      </option>
+                                      <option value="Topical">
+                                        Topical
+                                      </option>
+                                      <option value="Injection">
+                                        Injection
+                                      </option>
+                                      <option value="Inhalation">
+                                        Inhalation
+                                      </option>
+                                      <option value="Sublingual">
+                                        Sublingual
+                                      </option>
+                                      <option value="Rectal">
+                                        Rectal
+                                      </option>
+                                    </select>
+
+                                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                  </div>
+                                </div>
+
+                                <div className="md:col-span-2 lg:col-span-3">
+                                  <label className="mb-2 block text-xs font-bold text-slate-600">
+                                    Instructions
+                                  </label>
+
+                                  <input
+                                    value={
+                                      medicine.instructions
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateMedicine(
+                                        medicine.id,
+                                        "instructions",
+                                        event.target
+                                          .value
+                                      )
+                                    }
+                                    placeholder="e.g. Take after food"
+                                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                                  />
+                                </div>
                               </div>
-                            </motion.div>
+                            </div>
                           )
                         )}
-
-                        <button
-                          type="button"
-                          onClick={addMedicine}
-                          className="inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/50 px-4 text-sm font-semibold text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50 sm:w-auto"
-                        >
-                          <Plus className="h-4 w-4" />
-                          Add Another Medicine
-                        </button>
                       </div>
-                    </FormSection>
+                    </section>
 
                     {/* NOTES */}
+                    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                      <div className="mb-4 flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                          <FileText className="h-5 w-5" />
+                        </div>
 
-                    <FormSection
-                      icon={
-                        <ClipboardList className="h-5 w-5" />
-                      }
-                      title="Clinical Notes"
-                      description="Add additional instructions or clinical notes for this prescription."
-                      color="violet"
-                    >
-                      <TextAreaField
-                        label="Notes / Instructions"
+                        <div>
+                          <h3 className="font-bold text-slate-900">
+                            Notes
+                          </h3>
+
+                          <p className="text-xs text-slate-500">
+                            Add additional instructions or clinical notes.
+                          </p>
+                        </div>
+                      </div>
+
+                      <textarea
                         value={form.notes}
-                        onChange={(value) =>
+                        onChange={(event) =>
                           updateForm(
                             "notes",
-                            value
+                            event.target.value
                           )
                         }
-                        placeholder="Enter additional instructions, precautions or follow-up notes..."
+                        rows={4}
+                        placeholder="Enter additional notes..."
+                        className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
                       />
-                    </FormSection>
+                    </section>
 
                     {/* SUMMARY */}
+                    <section className="rounded-3xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50 p-4 sm:p-5">
+                      <div className="flex items-start gap-3">
+                        <HeartPulse className="mt-0.5 h-5 w-5 shrink-0 text-cyan-600" />
 
-                    <FormSection
-                      icon={
-                        <FileHeart className="h-5 w-5" />
-                      }
-                      title="Prescription Summary"
-                      description="Review the information before creating the prescription."
-                      color="amber"
-                    >
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <SummaryItem
-                          label="Patient"
-                          value={
-                            selectedPatient?.name ||
-                            "Not selected"
-                          }
-                        />
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-slate-900">
+                            Prescription Summary
+                          </h3>
 
-                        <SummaryItem
-                          label="Doctor"
-                          value={
-                            selectedDoctor?.name ||
-                            "Not selected"
-                          }
-                        />
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                Patient
+                              </p>
 
-                        <SummaryItem
-                          label="Department"
-                          value={
-                            selectedDoctor?.department ||
-                            "Not selected"
-                          }
-                        />
+                              <p className="mt-1 truncate text-sm font-bold text-slate-800">
+                                {selectedPatient?.name ||
+                                  "Not selected"}
+                              </p>
+                            </div>
 
-                        <SummaryItem
-                          label="Diagnosis"
-                          value={
-                            form.diagnosis ||
-                            "Not entered"
-                          }
-                        />
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                Doctor
+                              </p>
 
-                        <SummaryItem
-                          label="Medicine Count"
-                          value={`${form.medicines.length} medicine${
-                            form.medicines.length !==
-                            1
-                              ? "s"
-                              : ""
-                          }`}
-                        />
+                              <p className="mt-1 truncate text-sm font-bold text-slate-800">
+                                {selectedDoctor?.name ||
+                                  "Not selected"}
+                              </p>
+                            </div>
 
-                        <SummaryItem
-                          label="Status"
-                          value={
-                            editingPrescription?.status ||
-                            "ACTIVE"
-                          }
-                        />
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                Department
+                              </p>
+
+                              <p className="mt-1 truncate text-sm font-bold text-slate-800">
+                                {selectedDoctor?.department ||
+                                  "—"}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                Medicines
+                              </p>
+
+                              <p className="mt-1 text-sm font-bold text-slate-800">
+                                {
+                                  form.medicines.length
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </FormSection>
+                    </section>
                   </div>
-                </div>
-              </div>
-            </div>
 
-            {/* FOOTER */}
+                  {/* ACTION FOOTER */}
+                  <div className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 p-4 backdrop-blur sm:p-5">
+                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={closeEditor}
+                        disabled={isSaving}
+                        className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
 
-            <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-3 shadow-[0_-4px_20px_rgba(15,23,42,0.05)] sm:px-6">
-              <div className="mx-auto flex w-full max-w-[1500px] flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="hidden items-center gap-2 text-xs text-slate-400 sm:flex">
-                  <Pill className="h-4 w-4 text-cyan-500" />
-
-                  <span>
-                    {editingPrescription
-                      ? "Review the prescription before saving"
-                      : "Complete the required information to create"}
-                  </span>
-                </div>
-
-                <div className="flex w-full gap-2 sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={closeEditor}
-                    disabled={isSaving}
-                    className="h-11 flex-1 cursor-pointer rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={
-                      !isFormComplete ||
-                      isSaving
-                    }
-                    className={`inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl px-6 text-sm font-semibold text-white shadow-lg transition sm:flex-none ${
-                      !isFormComplete ||
-                      isSaving
-                        ? "cursor-not-allowed bg-slate-300 shadow-none"
-                        : "cursor-pointer bg-gradient-to-r from-cyan-700 via-cyan-600 to-blue-600 shadow-cyan-500/20 hover:from-cyan-800 hover:via-cyan-700 hover:to-blue-700 active:scale-[0.98]"
-                    }`}
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-4 w-4" />
-
-                        {editingPrescription
-                          ? "Save Changes"
-                          : "Create Prescription"}
-                      </>
-                    )}
-                  </button>
-                </div>
+                      <button
+                        type="button"
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-3 text-sm font-bold text-white shadow-md transition hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-4 w-4" />
+                            {editingPrescription
+                              ? "Update Prescription"
+                              : "Create Prescription"}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ===================================================
-          VIEW MODAL
-      =================================================== */}
+      {/* ================================================================== */}
+      {/*                           VIEW MODAL                               */}
+      {/* ================================================================== */}
 
       <AnimatePresence>
-        {viewPrescription && (
-          <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 p-3 backdrop-blur-sm sm:p-5"
-          >
+        {isViewOpen &&
+          selectedPrescription && (
             <motion.div
               initial={{
                 opacity: 0,
-                scale: 0.97,
-                y: 10,
               }}
               animate={{
                 opacity: 1,
-                scale: 1,
-                y: 0,
               }}
               exit={{
                 opacity: 0,
-                scale: 0.97,
-                y: 10,
               }}
-              className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+              className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-5"
+              onMouseDown={(event) => {
+                if (
+                  event.target ===
+                  event.currentTarget
+                ) {
+                  closeViewModal();
+                }
+              }}
             >
-              {/* MODAL HEADER */}
-
-              <div className="shrink-0 bg-gradient-to-r from-cyan-700 via-cyan-600 to-blue-600 px-5 py-5 text-white sm:px-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
-                      <Pill className="h-6 w-6" />
-                    </div>
-
+              <motion.div
+                initial={{
+                  opacity: 0,
+                  scale: 0.97,
+                  y: 10,
+                }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.97,
+                  y: 10,
+                }}
+                className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl"
+              >
+                <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 p-4 backdrop-blur sm:p-5">
+                  <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-xs text-cyan-100">
-                        Prescription
+                      <p className="text-xs font-semibold uppercase tracking-wide text-cyan-600">
+                        Prescription Details
                       </p>
 
-                      <h2 className="text-lg font-bold">
+                      <h2 className="mt-1 text-xl font-bold text-slate-900">
                         {
-                          viewPrescription.id
+                          selectedPrescription.id
                         }
                       </h2>
                     </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setViewPrescription(
-                        null
-                      )
-                    }
-                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-white/20 bg-white/10 transition hover:bg-white/20"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={closeViewModal}
+                      className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* MODAL CONTENT */}
-
-              <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
-                <div className="space-y-4">
-
+                <div className="space-y-5 p-4 sm:p-6">
                   {/* PATIENT */}
-
-                  <div className="rounded-2xl border border-cyan-100 border-l-4 border-l-cyan-500 bg-white p-4 shadow-sm sm:p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700">
-                          <UserRound className="h-6 w-6" />
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                            Patient
-                          </p>
-
-                          <p className="text-base font-bold text-slate-800">
-                            {
-                              viewPrescription.patientName
-                            }
-                          </p>
-
-                          <p className="mt-1 text-xs text-slate-400">
-                            {
-                              viewPrescription.patientId
-                            }{" "}
-                            •{" "}
-                            {
-                              viewPrescription.patientAge
-                            }{" "}
-                            yrs •{" "}
-                            {
-                              viewPrescription.patientGender
-                            }
-                          </p>
-                        </div>
-                      </div>
-
-                      <StatusBadge
-                        status={
-                          viewPrescription.status
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* DOCTOR / DETAILS */}
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <DetailCard
-                      icon={
-                        <Stethoscope className="h-5 w-5" />
-                      }
-                      label="Prescribed By"
-                      value={
-                        viewPrescription.doctorName
-                      }
-                      secondary={
-                        viewPrescription.department
-                      }
-                      color="blue"
-                    />
-
-                    <DetailCard
-                      icon={
-                        <CalendarDays className="h-5 w-5" />
-                      }
-                      label="Prescription Date"
-                      value={
-                        viewPrescription.prescriptionDate
-                      }
-                      secondary={
-                        viewPrescription.diagnosis
-                      }
-                      color="violet"
-                    />
-                  </div>
-
-                  {/* MEDICINES */}
-
-                  <div className="rounded-2xl border border-emerald-100 border-l-4 border-l-emerald-500 bg-white p-4 shadow-sm sm:p-5">
-                    <div className="mb-4 flex items-center gap-2">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                        <Pill className="h-5 w-5" />
-                      </div>
+                  <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4">
+                    <div className="flex items-center gap-3">
+                      <UserRound className="h-5 w-5 text-cyan-600" />
 
                       <div>
-                        <h3 className="font-semibold text-slate-800">
-                          Medicines
-                        </h3>
+                        <p className="text-xs font-bold uppercase tracking-wide text-cyan-600">
+                          Patient
+                        </p>
 
-                        <p className="text-xs text-slate-400">
+                        <p className="font-bold text-slate-900">
                           {
-                            viewPrescription
-                              .medicines
-                              .length
-                          }{" "}
-                          prescribed item
-                          {viewPrescription
-                            .medicines
-                            .length !==
-                          1
-                            ? "s"
-                            : ""}
+                            selectedPrescription.patientName
+                          }
                         </p>
                       </div>
                     </div>
 
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Patient ID
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {
+                            selectedPrescription.patientId
+                          }
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Age
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {
+                            selectedPrescription.patientAge
+                          }
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Gender
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {
+                            selectedPrescription.patientGender ||
+                              "—"
+                          }
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Date
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {formatDate(
+                            selectedPrescription.prescriptionDate
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* DOCTOR */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center gap-3">
+                      <Stethoscope className="h-5 w-5 text-blue-600" />
+
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                          Prescribed By
+                        </p>
+
+                        <p className="font-bold text-slate-900">
+                          {
+                            selectedPrescription.doctorName
+                          }
+                        </p>
+
+                        <p className="text-xs text-slate-500">
+                          {
+                            selectedPrescription.department
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* DIAGNOSIS */}
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                      Diagnosis
+                    </p>
+
+                    <p className="mt-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-800">
+                      {
+                        selectedPrescription.diagnosis
+                      }
+                    </p>
+                  </div>
+
+                  {/* MEDICINES */}
+                  <div>
+                    <div className="mb-3 flex items-center gap-2">
+                      <Pill className="h-5 w-5 text-emerald-600" />
+
+                      <h3 className="font-bold text-slate-900">
+                        Medicines
+                      </h3>
+                    </div>
+
                     <div className="space-y-3">
-                      {viewPrescription.medicines.map(
-                        (medicine, index) => (
+                      {selectedPrescription.medicines.map(
+                        (
+                          medicine,
+                          index
+                        ) => (
                           <div
                             key={
                               medicine.id
@@ -2693,62 +3015,78 @@ export default function PrescriptionsPage() {
                             className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
                           >
                             <div className="flex items-start gap-3">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-xs font-bold text-emerald-700">
-                                {index +
-                                  1}
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-xs font-bold text-emerald-700">
+                                {index + 1}
                               </div>
 
                               <div className="min-w-0 flex-1">
-                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                  <h4 className="font-semibold text-slate-800">
-                                    {
-                                      medicine.name
-                                    }
-                                  </h4>
+                                <p className="font-bold text-slate-900">
+                                  {
+                                    medicine.name
+                                  }
+                                </p>
 
-                                  <span className="text-xs font-semibold text-emerald-700">
-                                    {
-                                      medicine.dosage
-                                    }
-                                  </span>
-                                </div>
-
-                                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                                  <SmallDetail
-                                    label="Frequency"
-                                    value={
-                                      medicine.frequency
-                                    }
-                                  />
-
-                                  <SmallDetail
-                                    label="Duration"
-                                    value={
-                                      medicine.duration
-                                    }
-                                  />
-
-                                  <SmallDetail
-                                    label="Route"
-                                    value={
-                                      medicine.route
-                                    }
-                                  />
-                                </div>
-
-                                {medicine.instructions.trim() && (
-                                  <div className="mt-3 rounded-xl border border-emerald-100 bg-white p-3">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                                      Instructions
+                                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                  <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                      Dosage
                                     </p>
 
-                                    <p className="mt-1 text-xs leading-5 text-slate-600">
+                                    <p className="mt-1 text-xs font-semibold text-slate-700">
                                       {
-                                        medicine.instructions
+                                        medicine.dosage
                                       }
                                     </p>
                                   </div>
-                                )}
+
+                                  <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                      Frequency
+                                    </p>
+
+                                    <p className="mt-1 text-xs font-semibold text-slate-700">
+                                      {
+                                        medicine.frequency
+                                      }
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                      Duration
+                                    </p>
+
+                                    <p className="mt-1 text-xs font-semibold text-slate-700">
+                                      {
+                                        medicine.duration
+                                      }
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                      Route
+                                    </p>
+
+                                    <p className="mt-1 text-xs font-semibold text-slate-700">
+                                      {
+                                        medicine.route
+                                      }
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 rounded-xl bg-white p-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                    Instructions
+                                  </p>
+
+                                  <p className="mt-1 text-xs leading-5 text-slate-700">
+                                    {
+                                      medicine.instructions
+                                    }
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -2758,319 +3096,109 @@ export default function PrescriptionsPage() {
                   </div>
 
                   {/* NOTES */}
+                  {selectedPrescription.notes && (
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                        Notes
+                      </p>
 
-                  {viewPrescription.notes.trim() && (
-                    <div className="rounded-2xl border border-violet-100 border-l-4 border-l-violet-500 bg-white p-4 shadow-sm sm:p-5">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                          <ClipboardList className="h-5 w-5" />
-                        </div>
-
-                        <div>
-                          <h3 className="font-semibold text-slate-800">
-                            Clinical Notes
-                          </h3>
-
-                          <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">
-                            {
-                              viewPrescription.notes
-                            }
-                          </p>
-                        </div>
-                      </div>
+                      <p className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                        {
+                          selectedPrescription.notes
+                        }
+                      </p>
                     </div>
                   )}
+
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <span className="text-sm font-semibold text-slate-600">
+                      Status
+                    </span>
+
+                    <StatusBadge
+                      status={
+                        selectedPrescription.status
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
-
-              {/* MODAL FOOTER */}
-
-              <div className="shrink-0 border-t border-slate-200 bg-white p-3 sm:p-4">
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setViewPrescription(
-                        null
-                      )
-                    }
-                    className="h-11 cursor-pointer rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                  >
-                    Close
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openEdit(
-                        viewPrescription
-                      )
-                    }
-                    className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-700 via-cyan-600 to-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-800 hover:via-cyan-700 hover:to-blue-700"
-                  >
-                    <Edit3 className="h-4 w-4" />
-                    Edit Prescription
-                  </button>
-                </div>
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          )}
       </AnimatePresence>
 
-      {/* ===================================================
-          DELETE CONFIRMATION
-      =================================================== */}
+      {/* ================================================================== */}
+      {/*                         DELETE MODAL                               */}
+      {/* ================================================================== */}
 
       <AnimatePresence>
-        {deletePrescription && (
-          <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
-          >
+        {isDeleteOpen &&
+          deleteTarget && (
             <motion.div
               initial={{
                 opacity: 0,
-                scale: 0.96,
               }}
               animate={{
                 opacity: 1,
-                scale: 1,
               }}
               exit={{
                 opacity: 0,
-                scale: 0.96,
               }}
-              className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                <Trash2 className="h-6 w-6" />
-              </div>
+              <motion.div
+                initial={{
+                  opacity: 0,
+                  scale: 0.96,
+                }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.96,
+                }}
+                className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                  <Trash2 className="h-6 w-6" />
+                </div>
 
-              <h3 className="mt-4 text-lg font-bold text-slate-900">
-                Delete Prescription?
-              </h3>
+                <h2 className="mt-4 text-lg font-bold text-slate-900">
+                  Delete Prescription?
+                </h2>
 
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Are you sure you want to delete{" "}
-                <strong className="text-slate-700">
-                  {deletePrescription.id}
-                </strong>{" "}
-                for{" "}
-                <strong className="text-slate-700">
-                  {
-                    deletePrescription.patientName
-                  }
-                </strong>
-                ?
-              </p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Are you sure you want to delete{" "}
+                  <span className="font-bold text-slate-700">
+                    {deleteTarget.id}
+                  </span>
+                  ? This action cannot be undone.
+                </p>
 
-              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDeletePrescription(
-                      null
-                    )
-                  }
-                  className="h-11 cursor-pointer rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
+                <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={closeDeleteModal}
+                    className="cursor-pointer rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={confirmDelete}
-                  className="h-11 cursor-pointer rounded-xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-700"
-                >
-                  Delete Prescription
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-bold text-white hover:bg-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete Prescription
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* =========================================================
-   PREVIEW ITEM
-========================================================= */
-
-function PreviewItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-start gap-2">
-      <div className="mt-0.5 text-slate-400">
-        {icon}
-      </div>
-
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          {label}
-        </p>
-
-        <p className="mt-0.5 truncate text-xs font-medium text-slate-700">
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
-   SUMMARY ITEM
-========================================================= */
-
-function SummaryItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-1 text-sm font-semibold text-slate-700">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-/* =========================================================
-   DETAIL CARD
-========================================================= */
-
-function DetailCard({
-  icon,
-  label,
-  value,
-  secondary,
-  color,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  secondary?: string;
-  color: "blue" | "violet";
-}) {
-  const theme =
-    color === "blue"
-      ? "border-blue-100 border-l-blue-500 bg-blue-50/20 text-blue-600"
-      : "border-violet-100 border-l-violet-500 bg-violet-50/20 text-violet-600";
-
-  return (
-    <div
-      className={`rounded-2xl border border-l-4 bg-white p-4 shadow-sm ${theme}`}
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-sm">
-          {icon}
-        </div>
-
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            {label}
-          </p>
-
-          <p className="mt-1 text-sm font-semibold text-slate-800">
-            {value}
-          </p>
-
-          {secondary && (
-            <p className="mt-1 text-xs text-slate-400">
-              {secondary}
-            </p>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
-   SMALL DETAIL
-========================================================= */
-
-function SmallDetail({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-      <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-1 text-xs font-semibold text-slate-700">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-/* =========================================================
-   INFO ITEM
-========================================================= */
-
-function InfoItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl bg-slate-50 p-3">
-      <div className="flex items-center gap-2 text-slate-400">
-        {icon}
-
-        <span className="text-[10px] font-semibold uppercase tracking-wide">
-          {label}
-        </span>
-      </div>
-
-      <p className="mt-1 text-xs font-medium text-slate-700">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-/* =========================================================
-   SHIELD ICON
-========================================================= */
-
-function ShieldIcon() {
-  return (
-    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-white">
-      <CheckCircle2 className="h-4 w-4" />
+      </AnimatePresence>
     </div>
   );
 }
