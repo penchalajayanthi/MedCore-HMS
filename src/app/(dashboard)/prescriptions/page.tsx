@@ -99,6 +99,14 @@ type EMRRecord = {
   fullName?: string;
   name?: string;
 
+  patient?: {
+    id?: string | number;
+    patientId?: string | number;
+    patientID?: string | number;
+    name?: string;
+    fullName?: string;
+  };
+
   age?: string | number;
   gender?: string;
   bloodGroup?: string;
@@ -111,6 +119,9 @@ type EMRRecord = {
 
   diagnosis?: string;
   visitDate?: string;
+  date?: string;
+  createdAt?: string;
+  updatedAt?: string;
 
   clinicalNotes?: string;
   notes?: string;
@@ -345,14 +356,23 @@ function getTodayDate() {
 function normalizeId(value: unknown) {
   return String(value ?? "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function normalizeIdDigits(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\D/g, "");
 }
 
 function normalizeName(value: unknown) {
   return String(value ?? "")
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, " ");
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function formatDate(date: string) {
@@ -478,7 +498,9 @@ function loadPatients(): PatientRecord[] {
         ? parsed.patients
         : Array.isArray(parsed?.records)
           ? parsed.records
-          : [];
+          : Array.isArray(parsed?.data)
+            ? parsed.data
+            : [];
 
     const normalized = rawPatients
       .map(normalizePatient)
@@ -561,7 +583,9 @@ function loadDoctors(): DoctorRecord[] {
         ? parsed.doctors
         : Array.isArray(parsed?.records)
           ? parsed.records
-          : [];
+          : Array.isArray(parsed?.data)
+            ? parsed.data
+            : [];
 
     const normalized = rawDoctors
       .map(normalizeDoctor)
@@ -585,7 +609,10 @@ function getEMRPatientId(record: EMRRecord) {
   return normalizeId(
     record.patientId ??
       record.patientID ??
-      record.patient_id
+      record.patient_id ??
+      record.patient?.patientId ??
+      record.patient?.patientID ??
+      record.patient?.id
   );
 }
 
@@ -593,8 +620,50 @@ function getEMRPatientName(record: EMRRecord) {
   return normalizeName(
     record.patientName ??
       record.fullName ??
-      record.name
+      record.name ??
+      record.patient?.name ??
+      record.patient?.fullName
   );
+}
+
+function getEMRDate(record: EMRRecord | null | undefined) {
+  return String(
+    record?.visitDate ??
+      record?.date ??
+      record?.updatedAt ??
+      record?.createdAt ??
+      ""
+  ).trim();
+}
+
+function getEMRDoctor(record: EMRRecord | null | undefined) {
+  return String(
+    record?.doctorName ??
+      record?.doctor ??
+      ""
+  ).trim();
+}
+
+function getEMRClinicalNotes(record: EMRRecord | null | undefined) {
+  return String(
+    record?.clinicalNotes ??
+      record?.notes ??
+      ""
+  ).trim();
+}
+
+function getEMRMedications(record: EMRRecord | null | undefined) {
+  const value = record?.medications;
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+
+  return [];
 }
 
 function loadEMRRecords(): EMRRecord[] {
@@ -610,25 +679,25 @@ function loadEMRRecords(): EMRRecord[] {
     const parsed = JSON.parse(stored);
 
     if (Array.isArray(parsed)) {
-      return parsed;
+      return parsed as EMRRecord[];
     }
 
-    if (Array.isArray(parsed?.records)) {
-      return parsed.records;
-    }
+    const rawRecords =
+      Array.isArray(parsed?.records)
+        ? parsed.records
+        : Array.isArray(parsed?.emrRecords)
+          ? parsed.emrRecords
+          : Array.isArray(parsed?.emr)
+            ? parsed.emr
+            : Array.isArray(parsed?.data)
+              ? parsed.data
+              : Array.isArray(parsed?.records?.data)
+                ? parsed.records.data
+                : [];
 
-    if (Array.isArray(parsed?.emrRecords)) {
-      return parsed.emrRecords;
-    }
-
-    if (Array.isArray(parsed?.emr)) {
-      return parsed.emr;
-    }
-
-    return [];
+    return rawRecords as EMRRecord[];
   } catch (error) {
     console.error("Failed to load EMR:", error);
-
     return [];
   }
 }
@@ -952,65 +1021,61 @@ export default function PrescriptionsPage() {
       return [];
     }
 
-    const patientId =
-      normalizeId(selectedPatient.id);
+    const patientId = normalizeId(selectedPatient.id);
+    const patientDigits = normalizeIdDigits(selectedPatient.id);
+    const patientName = normalizeName(selectedPatient.name);
 
-    const patientName =
-      normalizeName(selectedPatient.name);
+    const idMatches = emrRecords.filter((record) => {
+      const emrPatientId = getEMRPatientId(record);
+      const emrDigits = normalizeIdDigits(
+        record.patientId ??
+          record.patientID ??
+          record.patient_id ??
+          record.patient?.patientId ??
+          record.patient?.patientID ??
+          record.patient?.id
+      );
 
-    const matched = emrRecords.filter(
-      (record) => {
-        const emrPatientId =
-          getEMRPatientId(record);
-
-        const emrPatientName =
-          getEMRPatientName(record);
-
-        /*
-         * IMPORTANT:
-         * Patient ID is the primary match.
-         * Patient name is used as a fallback.
-         */
-
-        if (
-          patientId &&
+      return (
+        (patientId &&
           emrPatientId &&
-          patientId === emrPatientId
-        ) {
-          return true;
-        }
+          patientId === emrPatientId) ||
+        (patientDigits &&
+          emrDigits &&
+          patientDigits === emrDigits)
+      );
+    });
 
-        if (
-          patientName &&
-          emrPatientName &&
-          patientName === emrPatientName
-        ) {
-          return true;
-        }
+    /*
+     * Patient ID is the strongest match. Only use the normalized
+     * patient name when no ID match exists. This prevents an EMR
+     * record for another patient with a similar name from being
+     * incorrectly selected.
+     */
+    const matched =
+      idMatches.length > 0
+        ? idMatches
+        : emrRecords.filter((record) => {
+            const emrPatientName =
+              getEMRPatientName(record);
 
-        return false;
-      }
-    );
+            return (
+              patientName &&
+              emrPatientName &&
+              patientName === emrPatientName
+            );
+          });
 
     return [...matched].sort((a, b) => {
-      const dateA = a.visitDate
-        ? new Date(
-            `${a.visitDate}T00:00:00`
-          ).getTime()
-        : 0;
+      const dateA = Date.parse(getEMRDate(a));
+      const dateB = Date.parse(getEMRDate(b));
 
-      const dateB = b.visitDate
-        ? new Date(
-            `${b.visitDate}T00:00:00`
-          ).getTime()
-        : 0;
+      const safeA = Number.isNaN(dateA) ? 0 : dateA;
+      const safeB = Number.isNaN(dateB) ? 0 : dateB;
 
-      return dateB - dateA;
+      return safeB - safeA;
     });
-  }, [
-    selectedPatient,
-    emrRecords,
-  ]);
+  }, [selectedPatient, emrRecords]);
 
   const latestEMR =
     selectedPatientEMR[0] ?? null;
@@ -2248,14 +2313,12 @@ export default function PrescriptionsPage() {
 
                               <div>
                                 <p className="font-bold text-amber-900">
-                                  This patient has no EMR
-                                  records
+                                  No EMR records found for this patient
                                 </p>
 
                                 <p className="mt-1 text-sm leading-6 text-amber-700">
-                                  No EMR record could be matched
-                                  using this patient's ID or
-                                  name. Create an EMR record
+                                  No EMR record could be matched using the patient's
+                                  ID or normalized name. Create an EMR record
                                   for this patient first.
                                 </p>
 
@@ -2280,11 +2343,9 @@ export default function PrescriptionsPage() {
                                   </p>
 
                                   <p className="mt-1 text-sm font-bold text-slate-900">
-                                    {latestEMR?.visitDate
+                                    {getEMRDate(latestEMR)
                                       ? formatDate(
-                                          String(
-                                            latestEMR.visitDate
-                                          )
+                                          getEMRDate(latestEMR)
                                         )
                                       : "Visit date not available"}
                                   </p>
@@ -2358,12 +2419,45 @@ export default function PrescriptionsPage() {
                                   </p>
 
                                   <p className="mt-1 text-sm leading-6 text-slate-700">
-                                    {String(
-                                      latestEMR?.clinicalNotes ??
-                                        latestEMR?.notes ??
-                                        ""
-                                    )}
+                                    {getEMRClinicalNotes(latestEMR)}
                                   </p>
+                                </div>
+                              )}
+
+                              {getEMRDoctor(latestEMR) && (
+                                <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600">
+                                    EMR Doctor
+                                  </p>
+                                  <p className="mt-1 text-sm font-bold text-slate-800">
+                                    {getEMRDoctor(latestEMR)}
+                                  </p>
+                                </div>
+                              )}
+
+                              {getEMRMedications(latestEMR).length > 0 && (
+                                <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                                    EMR Medications
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {getEMRMedications(latestEMR).map(
+                                      (medicine, index) => (
+                                        <span
+                                          key={`${String(medicine)}-${index}`}
+                                          className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700"
+                                        >
+                                          {typeof medicine === "string"
+                                            ? medicine
+                                            : String(
+                                                (medicine as any)?.name ??
+                                                  (medicine as any)?.medicineName ??
+                                                  medicine
+                                              )}
+                                        </span>
+                                      )
+                                    )}
+                                  </div>
                                 </div>
                               )}
                             </div>
