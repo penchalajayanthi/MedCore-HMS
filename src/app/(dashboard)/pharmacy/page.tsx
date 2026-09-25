@@ -1747,33 +1747,31 @@ export default function PharmacyPage() {
 
                                                     <div className="flex items-center justify-end gap-2">
 
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                setSelectedMedicine(
-                                                                    medicine
-                                                                )
-                                                            }
-                                                            title="View medicine"
-                                                            className="cursor-pointer rounded-lg border border-blue-200 bg-white p-2 text-blue-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:shadow-sm"
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </button>
+    {/* VIEW */}
+    <button
+        type="button"
+        onClick={() =>
+            setSelectedMedicine(medicine)
+        }
+        title="View medicine"
+        className="cursor-pointer rounded-lg border border-blue-200 bg-white p-2 text-blue-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:shadow-sm"
+    >
+        <Eye className="h-4 w-4" />
+    </button>
 
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleMedicineAction(
-                                                                    medicine
-                                                                )
-                                                            }
-                                                            title="Medicine action"
-                                                            className="cursor-pointer rounded-lg border border-cyan-200 bg-cyan-50 p-2 text-cyan-700 transition-all hover:border-cyan-300 hover:bg-cyan-100 hover:shadow-sm"
-                                                        >
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </button>
+    {/* DELETE */}
+    <button
+        type="button"
+        onClick={() =>
+            setMedicineToDelete(medicine)
+        }
+        title="Delete medicine"
+        className="cursor-pointer rounded-lg border border-red-200 bg-red-50 p-2 text-red-600 transition-all hover:border-red-300 hover:bg-red-100 hover:shadow-sm"
+    >
+        <Trash2 className="h-4 w-4" />
+    </button>
 
-                                                    </div>
+</div>
                                                 </td>
                                             </motion.tr>
                                         )
@@ -1970,36 +1968,53 @@ export default function PharmacyPage() {
                                             </div>
                                         )}
 
-                                        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                                        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
 
-                                            <span
-                                                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${statusClasses[medicine.status]}`}
-                                            >
+    <span
+        className={`inline-flex w-fit items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${statusClasses[medicine.status]}`}
+    >
+        <MedicineStatusIcon
+            status={medicine.status}
+        />
 
-                                                <MedicineStatusIcon
-                                                    status={
-                                                        medicine.status
-                                                    }
-                                                />
+        {medicine.status}
+    </span>
 
-                                                {
-                                                    medicine.status
-                                                }
-                                            </span>
+    <div className="flex items-center gap-2">
 
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    handleMedicineAction(
-                                                        medicine
-                                                    )
-                                                }
-                                                className="cursor-pointer rounded-lg border border-cyan-200 bg-cyan-50 p-2 text-cyan-700 transition hover:bg-cyan-100"
-                                            >
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </button>
+        {/* VIEW */}
+        <button
+            type="button"
+            onClick={() =>
+                setSelectedMedicine(
+                    medicine
+                )
+            }
+            title="View medicine"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+        >
+            <Eye className="h-4 w-4" />
+            View
+        </button>
 
-                                        </div>
+        {/* DELETE */}
+        <button
+            type="button"
+            onClick={() =>
+                setMedicineToDelete(
+                    medicine
+                )
+            }
+            title="Delete medicine"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-100"
+        >
+            <Trash2 className="h-4 w-4" />
+            Delete
+        </button>
+
+    </div>
+
+</div>
 
                                     </motion.div>
                                 )
