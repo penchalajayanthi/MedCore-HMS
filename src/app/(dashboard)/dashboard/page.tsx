@@ -1,53 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ElementType } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Activity,
-  ArrowRight,
+  ArrowUpRight,
+  CalendarCheck,
   CalendarDays,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
-  FileText,
   FlaskConical,
   HeartPulse,
   Pill,
   Search,
   Stethoscope,
-  UserRound,
   Users,
-  X,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 
-/* ============================================================
+/* =========================================================
    TYPES
-============================================================ */
-
-type SessionUser = {
-  fullName?: string;
-  email?: string;
-  hospitalName?: string;
-  role?: string;
-  emailVerified?: boolean;
-};
-
-type SessionData = {
-  user?: SessionUser;
-  isAuthenticated?: boolean;
-  remember?: boolean;
-};
+========================================================= */
 
 type AppointmentStatus =
   | "Confirmed"
-  | "In Progress"
   | "Pending"
-  | "Completed";
+  | "Completed"
+  | "Cancelled";
 
 type Appointment = {
-  id: number;
+  id: string | number;
+  date: string;
   time: string;
   patient: string;
   doctor: string;
@@ -56,1384 +39,1685 @@ type Appointment = {
   avatar: string;
 };
 
-/* ============================================================
-   DEMO APPOINTMENT DATA
-============================================================ */
+type LabApproval = {
+  id: string | number;
+  patient: string;
+  test: string;
+  orderedBy: string;
+  time: string;
+  priority: "High" | "Normal";
+};
 
-const appointments: Appointment[] = [
-  {
-    id: 1,
-    time: "09:00 AM",
-    patient: "Rahul Kumar",
-    doctor: "Dr. Priya Sharma",
-    department: "Cardiology",
-    status: "Completed",
-    avatar: "RK",
-  },
-  {
-    id: 2,
-    time: "10:30 AM",
-    patient: "Anita Reddy",
-    doctor: "Dr. Arjun Rao",
-    department: "Neurology",
-    status: "In Progress",
-    avatar: "AR",
-  },
-  {
-    id: 3,
-    time: "12:00 PM",
-    patient: "Suresh Babu",
-    doctor: "Dr. Neha Singh",
-    department: "Orthopedics",
-    status: "Confirmed",
-    avatar: "SB",
-  },
-  {
-    id: 4,
-    time: "02:30 PM",
-    patient: "Kavya Reddy",
-    doctor: "Dr. Vikram Rao",
-    department: "Pediatrics",
-    status: "Pending",
-    avatar: "KR",
-  },
-  {
-    id: 5,
-    time: "04:00 PM",
-    patient: "Meena Devi",
-    doctor: "Dr. Priya Sharma",
-    department: "Cardiology",
-    status: "Confirmed",
-    avatar: "MD",
-  },
+type PrescriptionItem = {
+  id: string | number;
+  patient: string;
+  medicine: string;
+  doctor: string;
+  date: string;
+  status: string;
+};
+
+type FollowUpItem = {
+  id: string | number;
+  patient: string;
+  date: string;
+  doctor: string;
+  reason: string;
+};
+
+type DashboardUser = {
+  fullName?: string;
+  email?: string;
+  hospitalName?: string;
+  role?: string;
+};
+
+type RawRecord = Record<string, unknown>;
+
+/* =========================================================
+   STORAGE KEYS
+========================================================= */
+
+const APPOINTMENTS_KEY = "medcore_appointments";
+const PATIENTS_KEY = "medcore_patients";
+const DOCTORS_KEY = "medcore_doctors";
+const EMR_KEY = "medcore_emr";
+const PRESCRIPTIONS_KEY = "medcore_prescriptions";
+const LAB_KEY = "medcore_lab_orders";
+
+/* =========================================================
+   UPDATE EVENTS
+========================================================= */
+
+const UPDATE_EVENTS = [
+  "medcore-appointments-updated",
+  "medcore-patients-updated",
+  "medcore-doctors-updated",
+  "medcore-emr-updated",
+  "medcore-prescriptions-updated",
+  "medcore-lab-updated",
+  "medcore-lab-orders-updated",
 ];
 
-/* ============================================================
-   LAB APPROVAL DATA
-============================================================ */
+/* =========================================================
+   HELPERS
+========================================================= */
 
-const labApprovals = [
-  {
-    id: 1,
-    patient: "Anita Reddy",
-    test: "Complete Blood Count",
-    orderedBy: "Dr. Arjun Rao",
-    time: "18 min ago",
-    priority: "High",
-  },
-  {
-    id: 2,
-    patient: "Rahul Kumar",
-    test: "Lipid Profile",
-    orderedBy: "Dr. Priya Sharma",
-    time: "42 min ago",
-    priority: "Normal",
-  },
-  {
-    id: 3,
-    patient: "Kavya Reddy",
-    test: "Thyroid Function Test",
-    orderedBy: "Dr. Meera Singh",
-    time: "1 hr ago",
-    priority: "Normal",
-  },
-];
+function getRecordId(
+  record: RawRecord,
+  fallback: string | number,
+): string | number {
+  const value =
+    record.id ??
+    record._id ??
+    record.appointmentId ??
+    record.patientId ??
+    record.doctorId ??
+    record.labId ??
+    record.prescriptionId ??
+    record.emrId;
 
-/* ============================================================
-   PRESCRIPTION DATA
-============================================================ */
+  if (
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+    return value;
+  }
 
-const prescriptions = [
-  {
-    patient: "Rahul Kumar",
-    medicine: "Atorvastatin 20mg",
-    dosage: "1 tablet · Once daily",
-    date: "Today",
-    avatar: "RK",
-  },
-  {
-    patient: "Anita Reddy",
-    medicine: "Pregabalin 75mg",
-    dosage: "1 capsule · Twice daily",
-    date: "Today",
-    avatar: "AR",
-  },
-  {
-    patient: "Suresh Babu",
-    medicine: "Paracetamol 500mg",
-    dosage: "1 tablet · SOS",
-    date: "Yesterday",
-    avatar: "SB",
-  },
-];
+  return fallback;
+}
 
-/* ============================================================
-   FOLLOW UPS
-============================================================ */
+function getString(
+  record: RawRecord,
+  ...keys: string[]
+): string {
+  for (const key of keys) {
+    const value = record[key];
 
-const followUps = [
-  {
-    date: 30,
-    month: "AUG",
-    patient: "Rahul Kumar",
-    type: "Cardiology follow-up",
-  },
-  {
-    date: 2,
-    month: "SEP",
-    patient: "Anita Reddy",
-    type: "Neurology review",
-  },
-  {
-    date: 5,
-    month: "SEP",
-    patient: "Kavya Reddy",
-    type: "Pediatrics follow-up",
-  },
-];
+    if (
+      typeof value === "string" &&
+      value.trim()
+    ) {
+      return value.trim();
+    }
 
-/* ============================================================
-   DASHBOARD
-============================================================ */
+    if (typeof value === "number") {
+      return String(value);
+    }
+  }
+
+  return "";
+}
+
+function getArray(value: unknown): RawRecord[] {
+  if (Array.isArray(value)) {
+    return value.filter(
+      (item): item is RawRecord =>
+        typeof item === "object" &&
+        item !== null &&
+        !Array.isArray(item),
+    );
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  ) {
+    const object = value as RawRecord;
+
+    const possibleKeys = [
+      "data",
+      "items",
+      "records",
+      "appointments",
+      "patients",
+      "doctors",
+      "orders",
+      "labOrders",
+      "prescriptions",
+      "emr",
+    ];
+
+    for (const key of possibleKeys) {
+      if (Array.isArray(object[key])) {
+        return getArray(object[key]);
+      }
+    }
+  }
+
+  return [];
+}
+
+function readStorage(key: string): {
+  exists: boolean;
+  data: RawRecord[];
+} {
+  if (typeof window === "undefined") {
+    return {
+      exists: false,
+      data: [],
+    };
+  }
+
+  try {
+    const raw = localStorage.getItem(key);
+
+    if (raw === null) {
+      return {
+        exists: false,
+        data: [],
+      };
+    }
+
+    return {
+      exists: true,
+      data: getArray(JSON.parse(raw)),
+    };
+  } catch {
+    return {
+      exists: true,
+      data: [],
+    };
+  }
+}
+
+function getPatientName(record: RawRecord): string {
+  return (
+    getString(
+      record,
+      "patientName",
+      "patient",
+      "patientFullName",
+      "fullName",
+      "name",
+    ) || "Unknown Patient"
+  );
+}
+
+function getDoctorName(record: RawRecord): string {
+  return (
+    getString(
+      record,
+      "doctorName",
+      "doctor",
+      "doctorFullName",
+      "physician",
+      "orderedBy",
+    ) || "Doctor"
+  );
+}
+
+function getDate(record: RawRecord): string {
+  return getString(
+    record,
+    "date",
+    "appointmentDate",
+    "scheduledDate",
+    "visitDate",
+    "createdAt",
+    "updatedAt",
+  );
+}
+
+function getTime(record: RawRecord): string {
+  return (
+    getString(
+      record,
+      "time",
+      "appointmentTime",
+      "scheduledTime",
+    ) || "Time not set"
+  );
+}
+
+function getInitials(name: string): string {
+  if (!name.trim()) return "NA";
+
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(
+      (part) =>
+        part[0]?.toUpperCase() ?? "",
+    )
+    .join("");
+}
+
+function normalizeStatus(
+  value: string,
+): AppointmentStatus {
+  const status = value.toLowerCase();
+
+  if (status.includes("complete")) {
+    return "Completed";
+  }
+
+  if (status.includes("cancel")) {
+    return "Cancelled";
+  }
+
+  if (
+    status.includes("confirm") ||
+    status.includes("approved")
+  ) {
+    return "Confirmed";
+  }
+
+  return "Pending";
+}
+
+function formatDate(value: string): string {
+  if (!value) return "Date not set";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function isToday(value: string): boolean {
+  if (!value) return false;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  const today = new Date();
+
+  return (
+    date.getFullYear() ===
+      today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
+}
+
+function isWithinNextSevenDays(
+  value: string,
+): boolean {
+  if (!value) return false;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  const today = new Date();
+
+  today.setHours(0, 0, 0, 0);
+
+  const nextSevenDays = new Date(today);
+
+  nextSevenDays.setDate(
+    nextSevenDays.getDate() + 7,
+  );
+
+  return (
+    date >= today &&
+    date <= nextSevenDays
+  );
+}
+
+/* =========================================================
+   STATUS STYLES
+========================================================= */
+
+const statusClasses: Record<
+  AppointmentStatus,
+  string
+> = {
+  Confirmed:
+    "border-emerald-200 bg-emerald-50 text-emerald-700",
+
+  Pending:
+    "border-amber-200 bg-amber-50 text-amber-700",
+
+  Completed:
+    "border-blue-200 bg-blue-50 text-blue-700",
+
+  Cancelled:
+    "border-red-200 bg-red-50 text-red-600",
+};
+
+/* =========================================================
+   DASHBOARD PAGE
+========================================================= */
 
 export default function DashboardPage() {
   const router = useRouter();
 
-  /* ==========================================================
-     USER
-  ========================================================== */
+  const [user, setUser] =
+    useState<DashboardUser>({});
 
-  const [userName, setUserName] =
-    useState("Doctor");
+  const [appointments, setAppointments] =
+    useState<Appointment[]>([]);
 
-  const [hospitalName, setHospitalName] =
-    useState("MedCore");
+  const [labApprovals, setLabApprovals] =
+    useState<LabApproval[]>([]);
 
-  /* ==========================================================
-     SEARCH
-  ========================================================== */
+  const [prescriptions, setPrescriptions] =
+    useState<PrescriptionItem[]>([]);
+
+  const [followUps, setFollowUps] =
+    useState<FollowUpItem[]>([]);
+
+  const [patientCount, setPatientCount] =
+    useState(0);
+
+  const [doctorCount, setDoctorCount] =
+    useState(0);
 
   const [search, setSearch] = useState("");
 
-  /* ==========================================================
-     CURRENT DATE
-  ========================================================== */
+  /* =======================================================
+     SESSION
+  ======================================================= */
 
-  const [currentDate, setCurrentDate] =
-    useState<Date | null>(null);
+  const loadSession = () => {
+    try {
+      const raw =
+        localStorage.getItem(
+          "medcore_session",
+        );
 
-  /* ==========================================================
-     LOAD USER
-  ========================================================== */
+      if (!raw) {
+        setUser({});
+        return;
+      }
+
+      const session = JSON.parse(raw) as {
+        user?: DashboardUser;
+      };
+
+      setUser(session.user ?? {});
+    } catch {
+      setUser({});
+    }
+  };
+
+  /* =======================================================
+     PATIENTS
+  ======================================================= */
+
+  const loadPatients = () => {
+    const result =
+      readStorage(PATIENTS_KEY);
+
+    setPatientCount(
+      result.exists
+        ? result.data.length
+        : 0,
+    );
+  };
+
+  /* =======================================================
+     DOCTORS
+  ======================================================= */
+
+  const loadDoctors = () => {
+    const result =
+      readStorage(DOCTORS_KEY);
+
+    setDoctorCount(
+      result.exists
+        ? result.data.length
+        : 0,
+    );
+  };
+
+  /* =======================================================
+     APPOINTMENTS
+  ======================================================= */
+
+  const loadAppointments = () => {
+    const result =
+      readStorage(APPOINTMENTS_KEY);
+
+    if (!result.exists) {
+      setAppointments([]);
+      return;
+    }
+
+    const mapped: Appointment[] =
+      result.data.map(
+        (item, index) => {
+          const patient =
+            getPatientName(item);
+
+          return {
+            id: getRecordId(
+              item,
+              `APT-${index + 1}`,
+            ),
+
+            date: getDate(item),
+
+            time: getTime(item),
+
+            patient,
+
+            doctor:
+              getDoctorName(item),
+
+            department:
+              getString(
+                item,
+                "department",
+                "departmentName",
+                "specialization",
+              ) ||
+              "General Medicine",
+
+            status: normalizeStatus(
+              getString(
+                item,
+                "status",
+                "appointmentStatus",
+              ),
+            ),
+
+            avatar:
+              getInitials(patient),
+          };
+        },
+      );
+
+    setAppointments(mapped);
+  };
+
+  /* =======================================================
+     LABORATORY
+  ======================================================= */
+
+  const loadLabs = () => {
+    const result =
+      readStorage(LAB_KEY);
+
+    if (!result.exists) {
+      setLabApprovals([]);
+      return;
+    }
+
+    const mapped: LabApproval[] =
+      result.data
+        .filter((item) => {
+          const status =
+            getString(
+              item,
+              "status",
+              "labStatus",
+              "orderStatus",
+            ).toLowerCase();
+
+          if (!status) return true;
+
+          return (
+            status.includes("pending") ||
+            status.includes("review") ||
+            status.includes("ordered") ||
+            status.includes("await")
+          );
+        })
+        .map((item, index) => {
+          return {
+            id: getRecordId(
+              item,
+              `LAB-${index + 1}`,
+            ),
+
+            patient:
+              getPatientName(item),
+
+            test:
+              getString(
+                item,
+                "test",
+                "testName",
+                "labTest",
+                "investigation",
+                "name",
+              ) ||
+              "Laboratory Test",
+
+            orderedBy:
+              getDoctorName(item),
+
+            time:
+              getString(
+                item,
+                "time",
+                "orderedAt",
+                "createdAt",
+              ) || "Recently",
+
+            priority:
+              getString(
+                item,
+                "priority",
+                "urgency",
+              )
+                .toLowerCase()
+                .includes("high")
+                ? "High"
+                : "Normal",
+          };
+        });
+
+    setLabApprovals(mapped);
+  };
+
+  /* =======================================================
+     PRESCRIPTIONS
+  ======================================================= */
+
+  const loadPrescriptions = () => {
+    const result =
+      readStorage(
+        PRESCRIPTIONS_KEY,
+      );
+
+    if (!result.exists) {
+      setPrescriptions([]);
+      return;
+    }
+
+    const mapped: PrescriptionItem[] =
+      result.data.map(
+        (item, index) => {
+          const date =
+            getDate(item);
+
+          return {
+            id: getRecordId(
+              item,
+              `RX-${index + 1}`,
+            ),
+
+            patient:
+              getPatientName(item),
+
+            medicine:
+              getString(
+                item,
+                "medicine",
+                "medicineName",
+                "drug",
+                "drugName",
+                "medication",
+              ) || "Medicine",
+
+            doctor:
+              getDoctorName(item),
+
+            date: date
+              ? formatDate(date)
+              : "Date not set",
+
+            status:
+              getString(
+                item,
+                "status",
+                "prescriptionStatus",
+              ) || "Active",
+          };
+        },
+      );
+
+    setPrescriptions(mapped);
+  };
+
+  /* =======================================================
+     FOLLOW UPS
+  ======================================================= */
+
+  const loadFollowUps = () => {
+    const generated: FollowUpItem[] =
+      [];
+
+    const appointmentResult =
+      readStorage(
+        APPOINTMENTS_KEY,
+      );
+
+    appointmentResult.data.forEach(
+      (item, index) => {
+        const date = getDate(item);
+
+        if (!date) return;
+
+        if (
+          !isWithinNextSevenDays(
+            date,
+          )
+        ) {
+          return;
+        }
+
+        generated.push({
+          id: getRecordId(
+            item,
+            `FU-${index + 1}`,
+          ),
+
+          patient:
+            getPatientName(item),
+
+          date: formatDate(date),
+
+          doctor:
+            getDoctorName(item),
+
+          reason:
+            getString(
+              item,
+              "reason",
+              "purpose",
+              "notes",
+              "appointmentType",
+            ) ||
+            "Upcoming appointment",
+        });
+      },
+    );
+
+    const emrResult =
+      readStorage(EMR_KEY);
+
+    emrResult.data.forEach(
+      (item, index) => {
+        const date =
+          getString(
+            item,
+            "followUpDate",
+            "nextVisit",
+            "nextAppointment",
+          );
+
+        if (!date) return;
+
+        if (
+          !isWithinNextSevenDays(
+            date,
+          )
+        ) {
+          return;
+        }
+
+        generated.push({
+          id: getRecordId(
+            item,
+            `EMR-FU-${index + 1}`,
+          ),
+
+          patient:
+            getPatientName(item),
+
+          date: formatDate(date),
+
+          doctor:
+            getDoctorName(item),
+
+          reason:
+            getString(
+              item,
+              "followUpReason",
+              "reason",
+              "notes",
+            ) || "EMR follow-up",
+        });
+      },
+    );
+
+    const unique =
+      generated.filter(
+        (item, index, array) =>
+          index ===
+          array.findIndex(
+            (other) =>
+              other.patient ===
+                item.patient &&
+              other.date ===
+                item.date,
+          ),
+      );
+
+    setFollowUps(unique);
+  };
+
+  /* =======================================================
+     LOAD DASHBOARD
+  ======================================================= */
+
+  const loadDashboard = () => {
+    loadSession();
+    loadPatients();
+    loadDoctors();
+    loadAppointments();
+    loadLabs();
+    loadPrescriptions();
+    loadFollowUps();
+  };
 
   useEffect(() => {
-    setCurrentDate(new Date());
+    loadDashboard();
 
-    try {
-      const session =
-        localStorage.getItem("medcore_session");
+    const handleUpdate = () => {
+      loadDashboard();
+    };
 
-      if (session) {
-        const parsed: SessionData =
-          JSON.parse(session);
+    window.addEventListener(
+      "storage",
+      handleUpdate,
+    );
 
-        const user = parsed?.user;
+    UPDATE_EVENTS.forEach(
+      (eventName) => {
+        window.addEventListener(
+          eventName,
+          handleUpdate,
+        );
+      },
+    );
 
-        if (user?.fullName) {
-          setUserName(user.fullName);
-        }
-
-        if (user?.hospitalName) {
-          setHospitalName(user.hospitalName);
-        }
-      }
-    } catch (error) {
-      console.error(
-        "Unable to load dashboard user:",
-        error
+    return () => {
+      window.removeEventListener(
+        "storage",
+        handleUpdate,
       );
-    }
+
+      UPDATE_EVENTS.forEach(
+        (eventName) => {
+          window.removeEventListener(
+            eventName,
+            handleUpdate,
+          );
+        },
+      );
+    };
   }, []);
 
-  /* ==========================================================
-     GREETING
-  ========================================================== */
+  /* =======================================================
+     TODAY'S APPOINTMENTS
+  ======================================================= */
 
-  const greeting = useMemo(() => {
-    if (!currentDate) {
-      return "Welcome";
-    }
-
-    const hour = currentDate.getHours();
-
-    if (hour < 12) {
-      return "Good morning";
-    }
-
-    if (hour < 17) {
-      return "Good afternoon";
-    }
-
-    if (hour < 21) {
-      return "Good evening";
-    }
-
-    return "Good night";
-  }, [currentDate]);
-
-  /* ==========================================================
-     DATE FORMAT
-  ========================================================== */
-
-  const formattedDate = useMemo(() => {
-    if (!currentDate) {
-      return "";
-    }
-
-    return currentDate.toLocaleDateString(
-      "en-IN",
-      {
-        weekday: "long",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }
-    );
-  }, [currentDate]);
-
-  /* ==========================================================
-     FILTER APPOINTMENTS
-  ========================================================== */
+  const todayAppointments =
+    useMemo(() => {
+      return appointments.filter(
+        (appointment) =>
+          isToday(
+            appointment.date,
+          ),
+      );
+    }, [appointments]);
 
   const filteredAppointments =
-    appointments.filter((appointment) => {
-      const query = search
-        .trim()
-        .toLowerCase();
+    useMemo(() => {
+      const query =
+        search.trim().toLowerCase();
 
       if (!query) {
-        return true;
+        return todayAppointments;
       }
 
-      return (
-        appointment.patient
-          .toLowerCase()
-          .includes(query) ||
-        appointment.doctor
-          .toLowerCase()
-          .includes(query) ||
-        appointment.department
-          .toLowerCase()
-          .includes(query)
+      return todayAppointments.filter(
+        (appointment) =>
+          [
+            appointment.patient,
+            appointment.doctor,
+            appointment.department,
+            appointment.status,
+            appointment.time,
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(query),
       );
-    });
+    }, [
+      todayAppointments,
+      search,
+    ]);
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50/30 to-blue-50/30 p-3 sm:p-5 lg:p-7 dark:from-slate-950 dark:via-slate-950 dark:to-cyan-950/10">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      {/* ===================================================
+          HEADER
+      =================================================== */}
 
-      <div className="mx-auto w-full max-w-[1600px] space-y-5 sm:space-y-6">
-
-        {/* ==================================================
-            HERO
-        ================================================== */}
-
-   <motion.section
-  initial={{
-    opacity: 0,
-    y: 20,
-  }}
-  animate={{
-    opacity: 1,
-    y: 0,
-  }}
-  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-violet-600 p-4 shadow-xl shadow-blue-500/10 sm:rounded-3xl sm:p-6 lg:p-7"
->
-  {/* Decorative circles */}
-
-  <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-
-  <div className="absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-cyan-300/10 blur-3xl" />
-
-  <div className="relative grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
-
-    {/* ============================================================
-        HERO CONTENT
-    ============================================================ */}
-
-    <div className="min-w-0">
-
-      {/* Hospital / Portal */}
-
-      <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-cyan-100 sm:text-xs">
-
-        <HeartPulse className="h-3.5 w-3.5 shrink-0" />
-
-        <span className="truncate">
-          {hospitalName} · Doctor Portal
-        </span>
-
-      </div>
-
-      {/* Greeting */}
-
-      <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">
-
-        {greeting},{" "}
-
-        <span className="break-words">
-          {userName}
-        </span>
-
-        <span className="ml-1">
-          👋
-        </span>
-
-      </h1>
-
-      {/* Description */}
-
-      <p className="mt-1.5 max-w-2xl text-xs leading-5 text-blue-100 sm:text-sm">
-
-        Manage today's appointments, review patient
-        information and stay on top of clinical tasks
-        from one place.
-
-      </p>
-
-    </div>
-
-    {/* ============================================================
-        DATE
-    ============================================================ */}
-
-    <div className="flex w-full sm:w-auto">
-
-      <div className="flex w-full items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md sm:min-w-[190px]">
-
-        {/* Calendar Icon */}
-
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
-
-          <CalendarDays className="h-4 w-4 text-white" />
-
-        </div>
-
-        {/* Date Text */}
-
-        <div>
-
-          <p className="text-[9px] font-semibold uppercase tracking-wider text-blue-100">
-            Today
-          </p>
-
-          <p className="text-xs font-bold text-white">
-            {formattedDate}
-          </p>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
-</motion.section>
-        {/* ==================================================
-            QUICK STATS
-        ================================================== */}
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-
-          <DoctorStat
-            title="Today's Appointments"
-            value="5"
-            subtitle="2 remaining"
-            icon={CalendarDays}
-            gradient="from-cyan-500 to-blue-600"
-          />
-
-          <DoctorStat
-            title="My Patients"
-            value="128"
-            subtitle="12 new this month"
-            icon={Users}
-            gradient="from-violet-500 to-purple-600"
-          />
-
-          <DoctorStat
-            title="Pending Labs"
-            value="3"
-            subtitle="Require review"
-            icon={FlaskConical}
-            gradient="from-orange-500 to-pink-600"
-          />
-
-          <DoctorStat
-            title="Follow-ups"
-            value="8"
-            subtitle="This week"
-            icon={HeartPulse}
-            gradient="from-emerald-500 to-teal-600"
-          />
-
-        </div>
-
-        {/* ==================================================
-            PATIENT SEARCH
-        ================================================== */}
-
-        <motion.div
-          initial={{
-            opacity: 0,
-            y: 15,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          transition={{
-            delay: 0.1,
-          }}
-          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 dark:border-slate-800 dark:bg-slate-900"
-        >
-
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-
-            <div className="flex shrink-0 items-center gap-3">
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-950/40">
-
-                <UserRound className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-
+      <div className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+                <HeartPulse className="h-5 w-5" />
               </div>
 
               <div>
-
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Quick Patient Lookup
-                </h2>
-
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Search patients before an encounter
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-600">
+                  Doctor Dashboard
                 </p>
 
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                  Welcome,{" "}
+                  {user.fullName
+                    ? user.fullName.split(
+                        " ",
+                      )[0]
+                    : "Doctor"}
+                </h1>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-500">
+              {user.hospitalName ||
+                "MedCore Hospital"}{" "}
+              • Here&apos;s your clinical
+              overview.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+        {/* =================================================
+            CLICKABLE STATS
+        ================================================= */}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <DashboardStat
+            title="Today's Appointments"
+            value={
+              todayAppointments.length
+            }
+            subtitle={
+              todayAppointments.length ===
+              0
+                ? "No appointments today"
+                : "Scheduled today"
+            }
+            icon={CalendarCheck}
+            iconClass="bg-blue-50 text-blue-600"
+            onClick={() =>
+              router.push(
+                "/appointments",
+              )
+            }
+          />
+
+          <DashboardStat
+            title="Patients"
+            value={patientCount}
+            subtitle="Registered patients"
+            icon={Users}
+            iconClass="bg-cyan-50 text-cyan-600"
+            onClick={() =>
+              router.push("/patients")
+            }
+          />
+
+          <DashboardStat
+            title="Pending Labs"
+            value={
+              labApprovals.length
+            }
+            subtitle={
+              labApprovals.length ===
+              0
+                ? "No pending lab work"
+                : "Require attention"
+            }
+            icon={FlaskConical}
+            iconClass="bg-violet-50 text-violet-600"
+            onClick={() =>
+              router.push(
+                "/laboratory",
+              )
+            }
+          />
+
+          <DashboardStat
+            title="Active Doctors"
+            value={doctorCount}
+            subtitle="Doctors in MedCore"
+            icon={Stethoscope}
+            iconClass="bg-emerald-50 text-emerald-600"
+            onClick={() =>
+              router.push("/doctors")
+            }
+          />
+        </div>
+
+        {/* =================================================
+            MAIN
+        ================================================= */}
+
+        <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          {/* LEFT */}
+
+          <div className="space-y-6">
+            {/* APPOINTMENTS */}
+
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="h-5 w-5 text-cyan-600" />
+
+                      <h2 className="text-lg font-bold text-slate-900">
+                        Today&apos;s
+                        Appointments
+                      </h2>
+                    </div>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      {todayAppointments.length ===
+                      0
+                        ? "No appointments scheduled for today."
+                        : `${todayAppointments.length} appointment${
+                            todayAppointments.length ===
+                            1
+                              ? ""
+                              : "s"
+                          } scheduled today.`}
+                    </p>
+                  </div>
+
+                  {todayAppointments.length >
+                    0 && (
+                    <div className="relative w-full lg:w-64">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                      <input
+                        value={search}
+                        onChange={(event) =>
+                          setSearch(
+                            event.target
+                              .value,
+                          )
+                        }
+                        placeholder="Search today..."
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:bg-white focus:ring-2 focus:ring-cyan-100"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
-            </div>
+              {filteredAppointments.length ===
+              0 ? (
+                <EmptySection
+                  icon={CalendarDays}
+                  title="No appointments"
+                  description="There are currently no appointments scheduled for today."
+                />
+              ) : (
+                <>
+                  {/* DESKTOP */}
 
-            <div className="relative w-full">
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full min-w-[760px]">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/70">
+                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Time
+                          </th>
 
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Patient
+                          </th>
 
-              <input
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Search patient, doctor or department..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              />
+                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Doctor
+                          </th>
 
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Department
+                          </th>
+
+                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {filteredAppointments
+                          .slice(0, 8)
+                          .map(
+                            (
+                              appointment,
+                            ) => (
+                              <tr
+                                key={
+                                  appointment.id
+                                }
+                                className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60"
+                              >
+                                <td className="px-5 py-4">
+                                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                                    <Clock3 className="h-4 w-4 text-cyan-500" />
+                                    {
+                                      appointment.time
+                                    }
+                                  </div>
+                                </td>
+
+                                <td className="px-5 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-50 text-xs font-bold text-cyan-700">
+                                      {
+                                        appointment.avatar
+                                      }
+                                    </div>
+
+                                    <span className="text-sm font-semibold text-slate-800">
+                                      {
+                                        appointment.patient
+                                      }
+                                    </span>
+                                  </div>
+                                </td>
+
+                                <td className="px-5 py-4 text-sm text-slate-600">
+                                  {
+                                    appointment.doctor
+                                  }
+                                </td>
+
+                                <td className="px-5 py-4 text-sm text-slate-600">
+                                  {
+                                    appointment.department
+                                  }
+                                </td>
+
+                                <td className="px-5 py-4">
+                                  <span
+                                    className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-semibold ${
+                                      statusClasses[
+                                        appointment
+                                          .status
+                                      ]
+                                    }`}
+                                  >
+                                    {
+                                      appointment.status
+                                    }
+                                  </span>
+                                </td>
+                              </tr>
+                            ),
+                          )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* MOBILE */}
+
+                  <div className="space-y-3 p-4 md:hidden">
+                    {filteredAppointments
+                      .slice(0, 8)
+                      .map(
+                        (
+                          appointment,
+                        ) => (
+                          <div
+                            key={
+                              appointment.id
+                            }
+                            className="rounded-xl border border-slate-200 p-4"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-50 text-xs font-bold text-cyan-700">
+                                  {
+                                    appointment.avatar
+                                  }
+                                </div>
+
+                                <div>
+                                  <p className="text-sm font-bold text-slate-900">
+                                    {
+                                      appointment.patient
+                                    }
+                                  </p>
+
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    {
+                                      appointment.department
+                                    }
+                                  </p>
+                                </div>
+                              </div>
+
+                              <span
+                                className={`rounded-lg border px-2 py-1 text-[11px] font-semibold ${
+                                  statusClasses[
+                                    appointment
+                                      .status
+                                  ]
+                                }`}
+                              >
+                                {
+                                  appointment.status
+                                }
+                              </span>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-2 gap-3">
+                              <InfoItem
+                                label="Time"
+                                value={
+                                  appointment.time
+                                }
+                                icon={
+                                  Clock3
+                                }
+                              />
+
+                              <InfoItem
+                                label="Doctor"
+                                value={
+                                  appointment.doctor
+                                }
+                                icon={
+                                  Stethoscope
+                                }
+                              />
+                            </div>
+                          </div>
+                        ),
+                      )}
+                  </div>
+                </>
               )}
+            </section>
 
+            {/* LAB + PRESCRIPTIONS */}
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* LAB */}
+
+              <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-100 p-5">
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="h-5 w-5 text-violet-600" />
+
+                    <h2 className="text-lg font-bold text-slate-900">
+                      Pending Laboratory
+                    </h2>
+                  </div>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Laboratory items requiring
+                    attention
+                  </p>
+                </div>
+
+                {labApprovals.length ===
+                0 ? (
+                  <EmptySection
+                    icon={CheckCircle2}
+                    title="No pending laboratory work"
+                    description="Everything is up to date."
+                  />
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {labApprovals
+                      .slice(0, 4)
+                      .map((lab) => (
+                        <div
+                          key={lab.id}
+                          className="p-4"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-slate-900">
+                                {
+                                  lab.patient
+                                }
+                              </p>
+
+                              <p className="mt-1 text-sm text-slate-600">
+                                {lab.test}
+                              </p>
+
+                              <p className="mt-1 text-xs text-slate-400">
+                                {
+                                  lab.orderedBy
+                                }{" "}
+                                •{" "}
+                                {
+                                  lab.time
+                                }
+                              </p>
+                            </div>
+
+                            <span
+                              className={`rounded-lg border px-2 py-1 text-[11px] font-semibold ${
+                                lab.priority ===
+                                "High"
+                                  ? "border-red-200 bg-red-50 text-red-600"
+                                  : "border-slate-200 bg-slate-50 text-slate-600"
+                              }`}
+                            >
+                              {
+                                lab.priority
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </section>
+
+              {/* PRESCRIPTIONS */}
+
+              <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-100 p-5">
+                  <div className="flex items-center gap-2">
+                    <Pill className="h-5 w-5 text-emerald-600" />
+
+                    <h2 className="text-lg font-bold text-slate-900">
+                      Recent Prescriptions
+                    </h2>
+                  </div>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Latest prescription activity
+                  </p>
+                </div>
+
+                {prescriptions.length ===
+                0 ? (
+                  <EmptySection
+                    icon={Pill}
+                    title="No prescriptions"
+                    description="Prescription activity will appear here."
+                  />
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {prescriptions
+                      .slice(0, 4)
+                      .map(
+                        (
+                          prescription,
+                        ) => (
+                          <div
+                            key={
+                              prescription.id
+                            }
+                            className="p-4"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                                <Pill className="h-4 w-4" />
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-bold text-slate-900">
+                                      {
+                                        prescription.patient
+                                      }
+                                    </p>
+
+                                    <p className="mt-1 text-sm text-slate-600">
+                                      {
+                                        prescription.medicine
+                                      }
+                                    </p>
+                                  </div>
+
+                                  <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                                    {
+                                      prescription.status
+                                    }
+                                  </span>
+                                </div>
+
+                                <p className="mt-1 text-xs text-slate-400">
+                                  {
+                                    prescription.doctor
+                                  }{" "}
+                                 
+                                  
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ),
+                      )}
+                  </div>
+                )}
+              </section>
             </div>
-
           </div>
 
-        </motion.div>
+          {/* RIGHT */}
 
-        {/* ==================================================
-            MAIN TWO COLUMN
-        ================================================== */}
+          <div className="space-y-6">
+            {/* PROFILE */}
 
-        <div className="grid min-w-0 gap-5 xl:grid-cols-3">
-
-          {/* ==================================================
-              TODAY'S APPOINTMENTS
-          ================================================== */}
-
-          <motion.section
-            initial={{
-              opacity: 0,
-              y: 20,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              delay: 0.15,
-            }}
-            className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2 dark:border-slate-800 dark:bg-slate-900"
-          >
-
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5 dark:border-slate-800">
-
-              <div className="min-w-0">
-
-                <div className="flex items-center gap-2">
-
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-950/40">
-
-                    <CalendarDays className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-
-                  </div>
-
-                  <h2 className="truncate text-base font-bold text-slate-900 dark:text-white">
-                    Today's Appointments
-                  </h2>
-
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-100 text-lg font-bold text-cyan-700">
+                  {getInitials(
+                    user.fullName ||
+                      "Doctor",
+                  )}
                 </div>
 
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Your clinical schedule for today
-                </p>
-
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  router.push("/appointments")
-                }
-                className="flex shrink-0 items-center gap-1 text-xs font-semibold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400"
-              >
-                <span className="hidden sm:inline">
-                  View all
-                </span>
-
-                <ArrowRight className="h-4 w-4" />
-              </button>
-
-            </div>
-
-            {/* Desktop / Tablet appointment list */}
-
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-
-              {filteredAppointments.length === 0 ? (
-
-                <div className="p-8 text-center">
-
-                  <Search className="mx-auto h-8 w-8 text-slate-300" />
-
-                  <p className="mt-3 text-sm font-medium text-slate-600 dark:text-slate-300">
-                    No appointments found
+                <div className="min-w-0">
+                  <p className="truncate text-base font-bold text-slate-900">
+                    {user.fullName ||
+                      "Doctor"}
                   </p>
 
-                  <p className="mt-1 text-xs text-slate-400">
-                    Try another patient name
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {user.email ||
+                      "No email available"}
                   </p>
 
+                  <span className="mt-2 inline-flex rounded-lg border border-cyan-200 bg-cyan-50 px-2 py-1 text-[11px] font-semibold capitalize text-cyan-700">
+                    {user.role?.replace(
+                      /-/g,
+                      " ",
+                    ) || "Doctor"}
+                  </span>
                 </div>
-
-              ) : (
-
-                filteredAppointments.map(
-                  (
-                    appointment,
-                    index
-                  ) => (
-
-                    <AppointmentRow
-                      key={appointment.id}
-                      appointment={appointment}
-                      index={index}
-                    />
-
-                  )
-                )
-
-              )}
-
-            </div>
-
-          </motion.section>
-
-          {/* ==================================================
-              PENDING LAB APPROVALS
-          ================================================== */}
-
-          <motion.section
-            initial={{
-              opacity: 0,
-              y: 20,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              delay: 0.2,
-            }}
-            className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
-          >
-
-            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 dark:border-slate-800">
-
-              <div>
-
-                <div className="flex items-center gap-2">
-
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 dark:bg-purple-950/40">
-
-                    <FlaskConical className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-
-                  </div>
-
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                    Pending Lab Results
-                  </h2>
-
-                </div>
-
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Reports waiting for your review
-                </p>
-
               </div>
 
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-100 px-2 text-[10px] font-bold text-red-600 dark:bg-red-950/40 dark:text-red-400">
-                {labApprovals.length}
-              </span>
+              <div className="mt-5 border-t border-slate-100 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Hospital
+                </p>
 
-            </div>
+                <p className="mt-1 text-sm font-semibold text-slate-700">
+                  {user.hospitalName ||
+                    "MedCore Hospital"}
+                </p>
+              </div>
+            </section>
 
-            <div className="space-y-3 p-4 sm:p-5">
+            {/* FOLLOW UPS */}
 
-              {labApprovals.map((lab) => (
-
-                <div
-                  key={lab.id}
-                  className="rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-purple-200 hover:bg-purple-50/40 dark:border-slate-800 dark:bg-slate-800/50 dark:hover:border-purple-900"
-                >
-
-                  <div className="flex gap-3">
-
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 text-xs font-bold text-white">
-                      {lab.patient
-                        .split(" ")
-                        .map(
-                          (part) =>
-                            part[0]
-                        )
-                        .join("")
-                        .slice(0, 2)}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-
-                      <div className="flex items-start justify-between gap-2">
-
-                        <div className="min-w-0">
-
-                          <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">
-                            {lab.patient}
-                          </p>
-
-                          <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-                            {lab.test}
-                          </p>
-
-                        </div>
-
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${
-                            lab.priority === "High"
-                              ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400"
-                              : "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
-                          }`}
-                        >
-                          {lab.priority}
-                        </span>
-
-                      </div>
-
-                      <div className="mt-2 flex items-center justify-between gap-2">
-
-                        <span className="text-[10px] text-slate-400">
-                          {lab.time}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            router.push(
-                              "/laboratory"
-                            )
-                          }
-                          className="text-[10px] font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400"
-                        >
-                          Review
-                        </button>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              ))}
-
-              <button
-                type="button"
-                onClick={() =>
-                  router.push("/laboratory")
-                }
-                className="flex w-full items-center justify-center gap-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-purple-300 hover:text-purple-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-purple-800 dark:hover:text-purple-400"
-              >
-                View all lab results
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-
-            </div>
-
-          </motion.section>
-
-        </div>
-
-        {/* ==================================================
-            SECOND ROW
-        ================================================== */}
-
-        <div className="grid min-w-0 gap-5 lg:grid-cols-2">
-
-          {/* ==================================================
-              FOLLOW UPS
-          ================================================== */}
-
-          <motion.section
-            initial={{
-              opacity: 0,
-              y: 20,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              delay: 0.25,
-            }}
-            className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
-          >
-
-            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 dark:border-slate-800">
-
-              <div>
-
+            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 p-5">
                 <div className="flex items-center gap-2">
+                  <Clock3 className="h-5 w-5 text-amber-600" />
 
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
-
-                    <HeartPulse className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-
-                  </div>
-
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  <h2 className="text-lg font-bold text-slate-900">
                     Upcoming Follow-ups
                   </h2>
-
                 </div>
 
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Patients scheduled for review
+                <p className="mt-1 text-xs text-slate-500">
+                  Based on appointments and EMR
+                  records
                 </p>
-
               </div>
 
-              <div className="flex gap-1">
+              {followUps.length ===
+              0 ? (
+                <EmptySection
+                  icon={Clock3}
+                  title="No upcoming follow-ups"
+                  description="Follow-up dates from EMR and appointments will appear here."
+                />
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {followUps
+                    .slice(0, 5)
+                    .map((followUp) => (
+                      <div
+                        key={followUp.id}
+                        className="p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-xs font-bold text-amber-700">
+                            {getInitials(
+                              followUp.patient,
+                            )}
+                          </div>
 
-                <button
-                  type="button"
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-900">
+                              {
+                                followUp.patient
+                              }
+                            </p>
 
-                <button
-                  type="button"
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {
+                                followUp.reason
+                              }
+                            </p>
 
-              </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <span className="rounded-md bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-500">
+                                {
+                                  followUp.date
+                                }
+                              </span>
 
-            </div>
-
-            {/* Mini calendar */}
-
-            <div className="p-4 sm:p-5">
-
-              <div className="grid grid-cols-7 gap-1 text-center">
-
-             {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => (
-  <span
-    key={`${day}-${index}`}
-    className="py-2 text-[10px] font-bold text-slate-400"
-  >
-    {day}
-  </span>
-))}
-                {Array.from(
-                  { length: 31 },
-                  (_, index) =>
-                    index + 1
-                ).map((day) => {
-
-                  const selected =
-                    [30].includes(day);
-
-                  const hasFollowUp =
-                    followUps.some(
-                      (item) =>
-                        item.date === day
-                    );
-
-                  return (
-                    <div
-                      key={day}
-                      className={`
-                        relative flex h-8
-                        items-center justify-center
-                        rounded-lg text-xs
-                        ${
-                          selected
-                            ? "bg-cyan-600 font-bold text-white"
-                            : hasFollowUp
-                            ? "bg-emerald-50 font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
-                            : "text-slate-600 dark:text-slate-400"
-                        }
-                      `}
-                    >
-                      {day}
-
-                      {hasFollowUp &&
-                        !selected && (
-                          <span className="absolute bottom-1 h-1 w-1 rounded-full bg-emerald-500" />
-                        )}
-                    </div>
-                  );
-                })}
-
-              </div>
-
-              {/* Follow-up list */}
-
-              <div className="mt-5 space-y-2">
-
-                {followUps.map(
-                  (followUp) => (
-
-                    <div
-                      key={`${followUp.patient}-${followUp.date}`}
-                      className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50"
-                    >
-
-                      <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-white shadow-sm dark:bg-slate-900">
-
-                        <span className="text-[8px] font-bold text-cyan-600">
-                          {followUp.month}
-                        </span>
-
-                        <span className="text-sm font-bold text-slate-900 dark:text-white">
-                          {followUp.date}
-                        </span>
-
+                              <span className="text-[11px] text-slate-400">
+                                {
+                                  followUp.doctor
+                                }
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                    ))}
+                </div>
+              )}
+            </section>
 
-                      <div className="min-w-0">
+            {/* SNAPSHOT */}
 
-                        <p className="truncate text-xs font-semibold text-slate-800 dark:text-white">
-                          {followUp.patient}
-                        </p>
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+                  <Activity className="h-5 w-5" />
+                </div>
 
-                        <p className="truncate text-[10px] text-slate-400">
-                          {followUp.type}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  )
-                )}
-
-              </div>
-
-            </div>
-
-          </motion.section>
-
-          {/* ==================================================
-              RECENT PRESCRIPTIONS
-          ================================================== */}
-
-          <motion.section
-            initial={{
-              opacity: 0,
-              y: 20,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              delay: 0.3,
-            }}
-            className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
-          >
-
-            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 dark:border-slate-800">
-
-              <div>
-
-                <div className="flex items-center gap-2">
-
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 dark:bg-pink-950/40">
-
-                    <Pill className="h-4 w-4 text-pink-600 dark:text-pink-400" />
-
-                  </div>
-
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                    Recent Prescriptions
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    Hospital Snapshot
                   </h2>
 
+                  <p className="text-xs text-slate-500">
+                    Live local data
+                  </p>
                 </div>
-
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Recently issued medications
-                </p>
-
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    "/prescriptions"
-                  )
-                }
-                className="text-xs font-semibold text-cyan-600 dark:text-cyan-400"
-              >
-                View all
-              </button>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <SnapshotItem
+                  label="Doctors"
+                  value={doctorCount}
+                />
 
-            </div>
+                <SnapshotItem
+                  label="Patients"
+                  value={patientCount}
+                />
 
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                <SnapshotItem
+                  label="Today"
+                  value={
+                    todayAppointments.length
+                  }
+                />
 
-              {prescriptions.map(
-                (prescription) => (
-
-                  <div
-                    key={`${prescription.patient}-${prescription.medicine}`}
-                    className="flex items-center gap-3 p-4 transition hover:bg-slate-50 sm:p-5 dark:hover:bg-slate-800/40"
-                  >
-
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 text-[10px] font-bold text-white shadow-sm">
-                      {prescription.avatar}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-
-                      <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">
-                        {prescription.patient}
-                      </p>
-
-                      <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-                        {prescription.medicine}
-                      </p>
-
-                      <p className="mt-1 truncate text-[10px] text-slate-400">
-                        {prescription.dosage}
-                      </p>
-
-                    </div>
-
-                    <span className="shrink-0 text-[10px] text-slate-400">
-                      {prescription.date}
-                    </span>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
-            <div className="p-4">
-
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    "/prescriptions"
-                  )
-                }
-                className="flex w-full items-center justify-center gap-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-pink-300 hover:text-pink-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-pink-800 dark:hover:text-pink-400"
-              >
-                Manage prescriptions
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-
-            </div>
-
-          </motion.section>
-
+                <SnapshotItem
+                  label="Labs"
+                  value={
+                    labApprovals.length
+                  }
+                />
+              </div>
+            </section>
+          </div>
         </div>
-
-        {/* ==================================================
-            CLINICAL SHORTCUTS
-        ================================================== */}
-
-        <motion.section
-          initial={{
-            opacity: 0,
-          }}
-          animate={{
-            opacity: 1,
-          }}
-          transition={{
-            delay: 0.35,
-          }}
-          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 dark:border-slate-800 dark:bg-slate-900"
-        >
-
-          <div className="mb-4">
-
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              Clinical Shortcuts
-            </h2>
-
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Frequently used doctor workflows
-            </p>
-
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-
-            <Shortcut
-              icon={Users}
-              title="Patients"
-              description="View patients"
-              gradient="from-cyan-500 to-blue-600"
-              onClick={() =>
-                router.push("/patients")
-              }
-            />
-
-            <Shortcut
-              icon={CalendarDays}
-              title="Appointments"
-              description="Manage schedule"
-              gradient="from-violet-500 to-purple-600"
-              onClick={() =>
-                router.push("/appointments")
-              }
-            />
-
-            <Shortcut
-              icon={FileText}
-              title="Medical Records"
-              description="Open EMR"
-              gradient="from-orange-500 to-pink-600"
-              onClick={() =>
-                router.push("/emr")
-              }
-            />
-
-            <Shortcut
-              icon={Stethoscope}
-              title="Doctors"
-              description="Doctor directory"
-              gradient="from-emerald-500 to-teal-600"
-              onClick={() =>
-                router.push("/doctors")
-              }
-            />
-
-          </div>
-
-        </motion.section>
-
-      </div>
+      </main>
     </div>
   );
 }
 
-/* ============================================================
-   DOCTOR STAT
-============================================================ */
+/* =========================================================
+   CLICKABLE STAT CARD
+========================================================= */
 
-function DoctorStat({
+function DashboardStat({
   title,
   value,
   subtitle,
   icon: Icon,
-  gradient,
-}: {
-  title: string;
-  value: string;
-  subtitle: string;
-  icon: React.ElementType;
-  gradient: string;
-}) {
-  return (
-    <motion.div
-      whileHover={{
-        y: -3,
-      }}
-      className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-lg sm:p-5 dark:border-slate-800 dark:bg-slate-900"
-    >
-
-      <div
-        className={`absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-10 blur-2xl`}
-      />
-
-      <div className="relative">
-
-        <div className="flex items-center justify-between gap-2">
-
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white shadow-md`}
-          >
-            <Icon className="h-4 w-4" />
-          </div>
-
-          <Activity className="h-4 w-4 text-emerald-500" />
-
-        </div>
-
-        <p className="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">
-          {title}
-        </p>
-
-        <p className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl dark:text-white">
-          {value}
-        </p>
-
-        <p className="mt-1 truncate text-[10px] text-slate-400 sm:text-xs">
-          {subtitle}
-        </p>
-
-      </div>
-
-    </motion.div>
-  );
-}
-
-/* ============================================================
-   APPOINTMENT ROW
-============================================================ */
-
-function AppointmentRow({
-  appointment,
-  index,
-}: {
-  appointment: Appointment;
-  index: number;
-}) {
-  const statusConfig = {
-    Confirmed: {
-      bg: "bg-emerald-50 dark:bg-emerald-950/30",
-      text: "text-emerald-700 dark:text-emerald-400",
-      dot: "bg-emerald-500",
-    },
-    "In Progress": {
-      bg: "bg-blue-50 dark:bg-blue-950/30",
-      text: "text-blue-700 dark:text-blue-400",
-      dot: "bg-blue-500",
-    },
-    Pending: {
-      bg: "bg-amber-50 dark:bg-amber-950/30",
-      text: "text-amber-700 dark:text-amber-400",
-      dot: "bg-amber-500",
-    },
-    Completed: {
-      bg: "bg-slate-100 dark:bg-slate-800",
-      text: "text-slate-600 dark:text-slate-400",
-      dot: "bg-slate-400",
-    },
-  };
-
-  const status =
-    statusConfig[appointment.status];
-
-  return (
-    <motion.div
-      initial={{
-        opacity: 0,
-        x: -10,
-      }}
-      animate={{
-        opacity: 1,
-        x: 0,
-      }}
-      transition={{
-        delay: index * 0.05,
-      }}
-      className="group flex flex-col gap-3 p-4 transition hover:bg-slate-50 sm:grid sm:grid-cols-[90px_1.5fr_1.2fr_1fr_auto] sm:items-center sm:gap-4 sm:p-5 dark:hover:bg-slate-800/40"
-    >
-
-      {/* Time */}
-
-      <div className="flex items-center justify-between sm:block">
-
-        <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-
-          <Clock3 className="h-4 w-4 text-cyan-500" />
-
-          {appointment.time}
-
-        </div>
-
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold sm:hidden ${status.bg} ${status.text}`}
-        >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${status.dot}`}
-          />
-
-          {appointment.status}
-        </span>
-
-      </div>
-
-      {/* Patient */}
-
-      <div className="flex min-w-0 items-center gap-3">
-
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-[10px] font-bold text-white shadow-sm">
-          {appointment.avatar}
-        </div>
-
-        <div className="min-w-0">
-
-          <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">
-            {appointment.patient}
-          </p>
-
-          <p className="mt-0.5 text-[10px] text-slate-400">
-            Patient
-          </p>
-
-        </div>
-
-      </div>
-
-      {/* Doctor */}
-
-      <div className="hidden min-w-0 sm:block">
-
-        <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-300">
-          {appointment.doctor}
-        </p>
-
-      </div>
-
-      {/* Department */}
-
-      <div className="hidden sm:block">
-
-        <span className="inline-flex max-w-full truncate rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-          {appointment.department}
-        </span>
-
-      </div>
-
-      {/* Status */}
-
-      <div className="hidden sm:block">
-
-        <span
-          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[10px] font-bold ${status.bg} ${status.text}`}
-        >
-
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${status.dot}`}
-          />
-
-          {appointment.status}
-
-        </span>
-
-      </div>
-
-      {/* Mobile department */}
-
-      <div className="flex items-center justify-between sm:hidden">
-
-        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-          {appointment.department}
-        </span>
-
-        <span className="text-[10px] text-slate-400">
-          {appointment.doctor}
-        </span>
-
-      </div>
-
-    </motion.div>
-  );
-}
-
-/* ============================================================
-   SHORTCUT
-============================================================ */
-
-function Shortcut({
-  icon: Icon,
-  title,
-  description,
-  gradient,
+  iconClass,
   onClick,
 }: {
-  icon: React.ElementType;
   title: string;
-  description: string;
-  gradient: string;
+  value: string | number;
+  subtitle: string;
+  icon: ElementType;
+  iconClass: string;
   onClick: () => void;
 }) {
   return (
-    <button
+    <motion.button
       type="button"
+      whileHover={{
+        y: -3,
+      }}
+      whileTap={{
+        scale: 0.98,
+      }}
       onClick={onClick}
-      className="group flex min-w-0 items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-transparent hover:bg-white hover:shadow-lg sm:gap-3 sm:p-4 dark:border-slate-800 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+      className="group w-full cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-cyan-300 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-cyan-200"
     >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-slate-500">
+            {title}
+          </p>
 
-      <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white shadow-md sm:h-10 sm:w-10`}
-      >
-        <Icon className="h-4 w-4" />
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+            {value}
+          </p>
+
+          <p className="mt-1 text-xs text-slate-400">
+            {subtitle}
+          </p>
+        </div>
+
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconClass} transition group-hover:scale-105`}
+        >
+          <Icon className="h-5 w-5" />
+        </div>
       </div>
 
-      <div className="min-w-0 flex-1">
+    </motion.button>
+  );
+}
 
-        <p className="truncate text-xs font-semibold text-slate-800 sm:text-sm dark:text-white">
-          {title}
-        </p>
+/* =========================================================
+   INFO ITEM
+========================================================= */
 
-        <p className="mt-0.5 truncate text-[9px] text-slate-400 sm:text-[10px]">
-          {description}
-        </p>
-
+function InfoItem({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: ElementType;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
       </div>
 
-      <ArrowRight className="hidden h-3.5 w-3.5 shrink-0 text-slate-300 transition group-hover:translate-x-1 group-hover:text-cyan-500 sm:block" />
+      <p className="mt-1 truncate text-xs font-semibold text-slate-700">
+        {value}
+      </p>
+    </div>
+  );
+}
 
-    </button>
+/* =========================================================
+   EMPTY SECTION
+========================================================= */
+
+function EmptySection({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: ElementType;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+        <Icon className="h-5 w-5" />
+      </div>
+
+      <p className="mt-3 text-sm font-semibold text-slate-700">
+        {title}
+      </p>
+
+      <p className="mt-1 max-w-xs text-xs leading-5 text-slate-400">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+/* =========================================================
+   SNAPSHOT ITEM
+========================================================= */
+
+function SnapshotItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+      <p className="text-[11px] font-medium text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 text-lg font-bold text-slate-900">
+        {value}
+      </p>
+    </div>
   );
 }
